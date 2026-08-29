@@ -98,13 +98,27 @@
       '  <div class="note-editor-row">' +
       '    <select class="type-select" data-action-change="changeNoteType" data-id="' + note.id + '">' + typeOptionsHtml(note) + '</select>' +
       '  </div>' +
-      '  <div class="note-editor-flags">' +
+      (note.deletedAt ? renderTrashedActions(note) : renderFlags(note)) +
+      '</div>';
+  }
+
+  function renderFlags(note) {
+    return '' +
+      '<div class="note-editor-flags">' +
       flagButton('toggleFavorite', note.id, note.isFavorite ? '★' : '☆', 'お気に入り', note.isFavorite) +
       flagButton('togglePinned', note.id, '📌', 'ピン留め', note.isPinned) +
       flagButton('toggleNeedsOrganizing', note.id, '🗂', 'あとで整理', note.needsOrganizing) +
       flagButton(note.isArchived ? 'unarchiveNote' : 'archiveNote', note.id, '📦', note.isArchived ? 'アーカイブ解除' : 'アーカイブ', note.isArchived) +
       '    <button type="button" class="flag-btn flag-btn--danger" data-action="trashNote" data-id="' + note.id + '">🗑 ゴミ箱へ</button>' +
-      '  </div>' +
+      '</div>';
+  }
+
+  function renderTrashedActions(note) {
+    return '' +
+      '<div class="note-editor-flags note-editor-flags--trashed">' +
+      '  <span class="trashed-note-label">🗑 ゴミ箱にあります</span>' +
+      '  <button type="button" class="flag-btn" data-action="restoreNote" data-id="' + note.id + '">元に戻す</button>' +
+      '  <button type="button" class="flag-btn flag-btn--danger" data-action="permanentDeleteNote" data-id="' + note.id + '">完全に削除</button>' +
       '</div>';
   }
 

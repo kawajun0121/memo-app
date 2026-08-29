@@ -202,6 +202,16 @@
     if (App.Store.uiStore.getState().selectedNoteId === d.id) App.Store.uiStore.selectNote(null);
   };
 
+  App.Actions['restoreNote'] = function (d) {
+    App.Store.notesStore.restore(d.id);
+  };
+
+  App.Actions['permanentDeleteNote'] = function (d) {
+    if (!window.confirm('このメモを完全に削除します。この操作は取り消せません。よろしいですか？')) return;
+    App.Store.notesStore.permanentDelete(d.id);
+    App.Store.uiStore.selectNote(null);
+  };
+
   App.Actions['removeCategoryFromNote'] = function (d, evt, el) {
     var editor = el.closest('.note-editor');
     if (!editor) return;
