@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "checkJs": true,
+    "target": "ES2019",
+    "module": "none",
+    "allowJs": true,
+    "noEmit": true,
+    "strict": false
+  },
+  "include": ["src/**/*.js"]
+}

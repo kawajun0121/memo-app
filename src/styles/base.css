@@ -1,0 +1,93 @@
+/*
+ 役割: リセット・配色トークン・タイポグラフィなど、全体の土台となるスタイル。
+*/
+:root {
+  --color-bg: #ffffff;
+  --color-bg-subtle: #f7f7f8;
+  --color-bg-hover: #eef0f2;
+  --color-border: #e4e4e7;
+  --color-border-strong: #d4d4d8;
+  --color-text: #1f2023;
+  --color-text-muted: #6b6f76;
+  --color-text-faint: #9a9ea5;
+  --color-accent: #4f5bd5;
+  --color-accent-bg: #eef0fd;
+  --color-danger: #d33b3b;
+  --color-danger-bg: #fbeaea;
+  --color-warning-bg: #fff6e5;
+  --font-sans: -apple-system, "Segoe UI", "Yu Gothic UI", "Hiragino Kaku Gothic ProN", Meiryo, system-ui, sans-serif;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--color-text);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  height: 100vh;
+  height: 100dvh; /* iOS Safariのアドレスバー分の誤差を防ぐ（対応ブラウザではこちらが優先される） */
+  display: flex;
+  flex-direction: column;
+  /* ホーム画面に追加してフルスクリーンで使った場合、ノッチ/ホームインジケーター部分に
+     コンテンツが被らないようにする（Safariのタブ内表示では0になり何もしない） */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+input, textarea, select {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -1px;
+}
+
+::selection {
+  background: var(--color-accent-bg);
+}
+
+.boot-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--color-text-muted);
+}
+
+.fatal-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--color-danger);
+}

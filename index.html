@@ -1,0 +1,99 @@
+<!--
+  個人用メモアプリ
+
+  【起動方法】このファイルをブラウザで直接ダブルクリックして開くだけで動きます。
+  ビルドやインストールは一切不要です（Node.js等も不要）。
+  PWA化してあるため、http(s)で配信すればWindowsは「アプリをインストール」、
+  iPhoneはSafariの「ホーム画面に追加」からアプリのように使える（詳細はREADME.md）。
+
+  【重要】下の<script>タグは依存関係の順番に読み込まれています。
+  ファイルを追加するときは、そのファイルが使う機能（依存）より後ろに置いてください。
+  新しいJS/CSSファイルを追加した場合は sw.js の ASSETS 一覧にも追記すること。
+-->
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>メモ</title>
+
+<!-- PWA（アプリインストール）用 -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#4f5bd5">
+<link rel="icon" href="icons/favicon-32.png">
+<!-- iOS Safariの「ホーム画面に追加」用（標準のmanifest対応が弱いため個別に指定） -->
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="メモ">
+
+<link rel="stylesheet" href="src/styles/base.css">
+<link rel="stylesheet" href="src/styles/layout.css">
+<link rel="stylesheet" href="src/styles/components.css">
+</head>
+<body>
+<!-- ログイン状態の判定中に一瞬だけ表示される簡易ローディング表示。boot()が判定し次第すぐ置き換わる -->
+<div id="app"><div class="boot-loading">読み込み中…</div></div>
+
+<!-- 0. Firebase SDK（PC/iPhone間のデータ同期用。CDN読み込みのためビルド不要） -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="src/firebaseConfig.js"></script>
+<script src="src/sync/firebaseInit.js"></script>
+
+<script src="src/types/typedefs.js"></script>
+
+<script src="src/logic/id.js"></script>
+<script src="src/logic/dateUtils.js"></script>
+<script src="src/logic/debounce.js"></script>
+<script src="src/logic/filtering.js"></script>
+<script src="src/logic/sorting.js"></script>
+<script src="src/logic/historyPolicy.js"></script>
+<script src="src/logic/navViews.js"></script>
+
+<script src="src/db/db.js"></script>
+<script src="src/db/notesRepo.js"></script>
+<script src="src/db/categoriesRepo.js"></script>
+<script src="src/db/typesRepo.js"></script>
+<script src="src/db/historyRepo.js"></script>
+<script src="src/db/savedViewsRepo.js"></script>
+<script src="src/db/settingsRepo.js"></script>
+
+<script src="src/store/state.js"></script>
+<script src="src/store/notesStore.js"></script>
+<script src="src/store/categoriesStore.js"></script>
+<script src="src/store/typesStore.js"></script>
+<script src="src/store/savedViewsStore.js"></script>
+<script src="src/store/historyStore.js"></script>
+<script src="src/store/aiSuggestStore.js"></script>
+<script src="src/store/uiStore.js"></script>
+
+<script src="src/ai/aiSuggest.js"></script>
+
+<script src="src/render/common.js"></script>
+<script src="src/render/sidebar.js"></script>
+<script src="src/render/noteCard.js"></script>
+<script src="src/render/bulkActionBar.js"></script>
+<script src="src/render/noteList.js"></script>
+<script src="src/render/noteEditor.js"></script>
+<script src="src/render/quickCapture.js"></script>
+<script src="src/render/historyPanel.js"></script>
+<script src="src/render/categoryManagerModal.js"></script>
+<script src="src/render/aiSuggestPanel.js"></script>
+<script src="src/render/savedViewModal.js"></script>
+<script src="src/render/settingsModal.js"></script>
+<script src="src/render/shortcuts.js"></script>
+<script src="src/render/appShell.js"></script>
+
+<!-- 同期・認証（ストアと画面描画層に依存するためここに置く） -->
+<script src="src/sync/authUI.js"></script>
+<script src="src/sync/cloudSync.js"></script>
+
+<!-- 起動処理（必ず最後） -->
+<script src="src/main.js"></script>
+
+<!-- PWA登録（アプリ本体の起動には影響しない独立処理） -->
+<script src="src/pwa.js"></script>
+</body>
+</html>

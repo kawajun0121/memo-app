@@ -1,0 +1,657 @@
+/*
+ 役割: ボタン・カード・チップ・モーダルなど個々のUI部品のスタイル。
+*/
+
+/* ---------- 汎用ボタン ---------- */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+}
+
+.icon-btn:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text);
+}
+
+.icon-btn.is-active {
+  color: var(--color-accent);
+}
+
+.icon-btn--small {
+  width: 20px;
+  height: 20px;
+  font-size: 12px;
+}
+
+.btn-text {
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.btn-text:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text);
+}
+
+.btn-text.btn-primary {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.btn-text.btn-primary:hover {
+  opacity: 0.9;
+  background: var(--color-accent);
+}
+
+.btn-text.btn-danger {
+  color: var(--color-danger);
+}
+
+.btn-text.btn-danger:hover {
+  background: var(--color-danger-bg);
+}
+
+.btn-icon {
+  padding: 4px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.btn-icon:hover {
+  background: var(--color-bg-hover);
+}
+
+.toolbar-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* ---------- サイドバー: ナビ項目 ---------- */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+.nav-item:hover {
+  background: var(--color-bg-hover);
+}
+
+.nav-item.is-selected {
+  background: var(--color-accent-bg);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.nav-item.is-and-filter {
+  outline: 1px dashed var(--color-accent);
+  outline-offset: -1px;
+}
+
+.nav-icon {
+  width: 16px;
+  text-align: center;
+}
+
+.nav-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-count {
+  font-size: 11px;
+  color: var(--color-text-faint);
+}
+
+.nav-item--saved-view {
+  display: flex;
+  align-items: center;
+}
+
+.nav-item--saved-view .nav-item-main {
+  flex: 1;
+  display: flex;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  font-size: 13px;
+}
+
+.nav-item--saved-view .nav-item-main:hover {
+  background: var(--color-bg-hover);
+}
+
+.nav-item--saved-view.is-selected .nav-item-main {
+  background: var(--color-accent-bg);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+/* ---------- メモカード ---------- */
+.note-card {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  height: 92px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+}
+
+.note-card:hover {
+  background: var(--color-bg-subtle);
+}
+
+.note-card.is-selected {
+  background: var(--color-accent-bg);
+}
+
+.note-card.has-organize-flag {
+  box-shadow: inset 3px 0 0 var(--color-warning-bg);
+}
+
+.note-checkbox {
+  margin-top: 3px;
+  flex: none;
+}
+
+.note-card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.note-card-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.note-title {
+  font-weight: 600;
+  font-size: 13.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note-title-empty {
+  color: var(--color-text-faint);
+  font-weight: 400;
+  font-style: italic;
+}
+
+.pin-mark {
+  margin-right: 4px;
+  font-size: 11px;
+}
+
+.note-card-meta-time {
+  flex: none;
+  font-size: 11px;
+  color: var(--color-text-faint);
+}
+
+.note-snippet {
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note-card-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.note-card-tags {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  flex: 1;
+}
+
+.note-card-flags {
+  flex: none;
+  display: flex;
+  gap: 2px;
+}
+
+/* ---------- チップ・バッジ ---------- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--color-bg-hover);
+  color: var(--color-text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.chip-more {
+  background: transparent;
+  color: var(--color-text-faint);
+}
+
+.chip-removable {
+  cursor: pointer;
+  border: none;
+}
+
+.chip-x {
+  color: var(--color-text-faint);
+}
+
+.chip-suggest {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  margin: 3px 4px 3px 0;
+}
+
+.chip-suggest:hover {
+  background: var(--color-accent-bg);
+  color: var(--color-accent);
+}
+
+.chip-suggest--new {
+  border-style: dashed;
+}
+
+.badge {
+  display: inline-flex;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+}
+
+.badge-type {
+  background: var(--color-accent-bg);
+  color: var(--color-accent);
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+/* ---------- メモ編集: フラグボタン ---------- */
+.flag-btn {
+  padding: 5px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.flag-btn:hover {
+  background: var(--color-bg-hover);
+}
+
+.flag-btn.is-active {
+  background: var(--color-accent-bg);
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.flag-btn--danger {
+  color: var(--color-danger);
+  margin-left: auto;
+}
+
+.flag-btn--danger:hover {
+  background: var(--color-danger-bg);
+}
+
+.autosave-status {
+  font-size: 12px;
+  color: var(--color-text-faint);
+}
+
+.autosave-status.is-saving {
+  color: var(--color-accent);
+}
+
+/* ---------- 一括操作バー ---------- */
+.bulk-action-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--color-accent-bg);
+  border-bottom: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+.bulk-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.bulk-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* ---------- モーダル ---------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 20, 24, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal-panel {
+  width: 480px;
+  max-width: calc(100vw - 40px);
+  max-height: calc(100vh - 80px);
+  background: var(--color-bg);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.modal-panel--small {
+  width: 380px;
+}
+
+.modal-header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.modal-body {
+  padding: 14px 16px;
+  overflow-y: auto;
+}
+
+.modal-empty {
+  padding: 24px 8px;
+  text-align: center;
+  color: var(--color-text-faint);
+  font-size: 13px;
+}
+
+.modal-empty--error {
+  color: var(--color-danger);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.modal-actions--secondary {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.saved-view-name-input {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+}
+
+.settings-label {
+  display: block;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-bottom: 6px;
+}
+
+.settings-section {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.settings-account-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.settings-account-email {
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-note {
+  font-size: 11.5px;
+  color: var(--color-text-faint);
+  line-height: 1.5;
+}
+
+/* ---------- 編集履歴 ---------- */
+.history-entry {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.history-entry:last-child {
+  border-bottom: none;
+}
+
+.history-entry-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.history-entry-date {
+  font-size: 12px;
+  color: var(--color-text-faint);
+}
+
+.history-entry-title {
+  font-weight: 600;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.history-entry-snippet {
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+/* ---------- AI提案 ---------- */
+.ai-suggest-section {
+  margin-bottom: 16px;
+}
+
+.ai-suggest-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-bottom: 6px;
+}
+
+.ai-suggest-actions {
+  margin-top: 8px;
+}
+
+/* ---------- カテゴリ管理 ---------- */
+.category-manager-new {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.category-manager-new input {
+  flex: 1;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+}
+
+.category-manager-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.category-rename-input {
+  flex: 1;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+}
+
+.category-rename-input:hover, .category-rename-input:focus {
+  border-color: var(--color-border);
+}
+
+.category-usage-count {
+  font-size: 12px;
+  color: var(--color-text-faint);
+  white-space: nowrap;
+}
+
+/* ---------- ログイン画面 ---------- */
+.auth-screen {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: var(--color-bg-subtle);
+}
+
+.auth-card {
+  width: min(360px, 100%);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.auth-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 12px;
+}
+
+.auth-card input {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
+.auth-title {
+  font-size: 17px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.auth-subtitle {
+  font-size: 12px;
+  color: var(--color-text-faint);
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.auth-error {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+}
+
+.auth-card .btn-primary {
+  background: var(--color-accent);
+  color: #fff;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.auth-card .btn-primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.auth-submit {
+  width: 100%;
+  text-align: center;
+  margin-top: 16px;
+}
+
+.auth-toggle {
+  width: 100%;
+  text-align: center;
+  margin-top: 10px;
+}
+
+.auth-skip {
+  width: 100%;
+  text-align: center;
+  margin-top: 4px;
+  color: var(--color-text-faint);
+}

@@ -1,0 +1,31 @@
+<!--
+  logic層（絞り込み・並び替え・履歴保存ポリシー・共通ヘルパー）の動作確認用テストページ。
+  このファイルをブラウザで直接開くだけで実行され、PASS/FAILが一覧表示されます。
+-->
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <title>logic層テスト</title>
+  <style>
+    body { font-family: sans-serif; padding: 24px; max-width: 720px; margin: 0 auto; }
+    li { margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <div id="results">実行中...</div>
+
+  <script src="../src/types/typedefs.js"></script>
+  <script src="../src/logic/id.js"></script>
+  <script src="../src/logic/dateUtils.js"></script>
+  <script src="../src/logic/debounce.js"></script>
+  <script src="../src/logic/filtering.js"></script>
+  <script src="../src/logic/sorting.js"></script>
+  <script src="../src/logic/historyPolicy.js"></script>
+  <script src="../src/logic/navViews.js"></script>
+  <script src="../src/render/common.js"></script>
+
+  <script src="testRunner.js"></script>
+  <script src="logic.test.js"></script>
+</body>
+</html>
