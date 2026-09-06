@@ -175,6 +175,17 @@
     }, 0);
   };
 
+  // 一覧での長押し削除（誤操作防止のため、削除ボタン自体をタップしたときだけ実行される）
+  App.Actions['hideRevealedDelete'] = function () {
+    App.Store.uiStore.hideRevealedDelete();
+  };
+
+  App.Actions['deleteRevealedNote'] = function (d) {
+    App.Store.notesStore.softDelete(d.id);
+    App.Store.uiStore.hideRevealedDelete();
+    if (App.Store.uiStore.getState().selectedNoteId === d.id) App.Store.uiStore.selectNote(null);
+  };
+
   // ---------- スマホ幅でのナビゲーション ----------
 
   App.Actions['setMobileViewNav'] = function () {

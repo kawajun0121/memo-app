@@ -3,6 +3,10 @@
        自前の仮想スクロールによる一覧本体を担当する。
  依存: render/common.js, render/noteCard.js, logic/filtering.js, logic/sorting.js, store/*
 
+ 【長押しで削除】カードをpointerdownしたまま500ms動かさずにいると、store/uiStore.jsの
+ revealedDeleteNoteIdをそのメモIDにして削除確認オーバーレイを表示する（render/noteCard.js）。
+ 長押し成立直後に発生する合成クリックは誤って削除/キャンセルを起動しないよう1回だけ握りつぶす。
+
  【仮想スクロールの方針】
  メモが1万件規模になっても軽快に動くよう、一覧のカードは固定高さにし、
  スクロール位置から「今見えている範囲」だけHTMLを生成する。カードの高さはCSS変数
@@ -47,7 +51,8 @@
         typeNameById: ctx.typeNameById,
         isSelected: note.id === ctx.selectedNoteId,
         multiSelectMode: ctx.multiSelectMode,
-        isChecked: ctx.selectedIds.indexOf(note.id) !== -1
+        isChecked: ctx.selectedIds.indexOf(note.id) !== -1,
+        isDeleteRevealed: note.id === ctx.revealedDeleteNoteId
       });
     }).join('');
   }
@@ -136,6 +141,62 @@
     lastScrollTop = scroller.scrollTop;
   }
 
+  var LONG_PRESS_MS = 500;
+  var MOVE_CANCEL_THRESHOLD = 10;
+  var longPressTimer = null;
+  var longPressStartX = 0;
+  var longPressStartY = 0;
+  var suppressNextClick = false;
+
+  function clearLongPressTimer() {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+  }
+
+  /** 一覧のメモを長押しすると削除ボタンを表示する（誤操作防止のため、長押し直後の
+   *  クリックは削除にもキャンセルにもつながらないよう抑制する）。 */
+  function attachLongPressToDelete(scroller) {
+    scroller.addEventListener('pointerdown', function (evt) {
+      if (evt.pointerType === 'mouse' && evt.button !== 0) return;
+      var card = evt.target.closest('.note-card');
+      if (!card || card.classList.contains('note-card--delete-armed')) return;
+      var noteId = card.getAttribute('data-id');
+      if (!noteId) return;
+
+      longPressStartX = evt.clientX;
+      longPressStartY = evt.clientY;
+      clearLongPressTimer();
+      longPressTimer = setTimeout(function () {
+        longPressTimer = null;
+        suppressNextClick = true;
+        App.Store.uiStore.revealDeleteForNote(noteId);
+      }, LONG_PRESS_MS);
+    });
+
+    scroller.addEventListener('pointermove', function (evt) {
+      if (!longPressTimer) return;
+      var dx = Math.abs(evt.clientX - longPressStartX);
+      var dy = Math.abs(evt.clientY - longPressStartY);
+      if (dx > MOVE_CANCEL_THRESHOLD || dy > MOVE_CANCEL_THRESHOLD) clearLongPressTimer();
+    });
+
+    scroller.addEventListener('pointerup', clearLongPressTimer);
+    scroller.addEventListener('pointercancel', clearLongPressTimer);
+    scroller.addEventListener('pointerleave', clearLongPressTimer);
+
+    // 長押しが成立した直後に発生する合成クリック（タップ→離す）を1回だけ無効化する。
+    // キャプチャフェーズにしてrender/common.jsの委譲リスナー（#appのバブリング）より先に止める。
+    scroller.addEventListener('click', function (evt) {
+      if (suppressNextClick) {
+        suppressNextClick = false;
+        evt.preventDefault();
+        evt.stopPropagation();
+      }
+    }, true);
+  }
+
   function mount() {
     var scroller = document.getElementById('noteListScroller');
     if (!scroller) return;
@@ -143,6 +204,7 @@
     scroller.addEventListener('scroll', function () {
       window.requestAnimationFrame(patchVisibleRows);
     });
+    attachLongPressToDelete(scroller);
     // 実際のビューポート高さで再計算（初回描画時の概算600pxとズレるため）
     patchVisibleRows();
   }

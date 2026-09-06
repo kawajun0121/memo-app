@@ -22,7 +22,11 @@
     includeArchivedInSearch: false,
     // スマホ幅（iPhone等）でのみ使う画面切り替え。'nav'=ナビゲーション / 'list'=メモ一覧 / 'editor'=メモ本文。
     // PC幅では3カラム同時表示のためCSS側でこの値は無視される。
-    mobileView: 'list'
+    mobileView: 'list',
+    // 一覧でメモを長押しした際に「削除」ボタンを表示中のメモID（1件のみ）。
+    // 誤操作防止のため、長押し直後の1回のタップでは削除せず、削除ボタン自体を
+    // 別途タップしたときのみ実際に削除する（render/noteList.jsの長押し検出とセット）。
+    revealedDeleteNoteId: null
   });
 
   /**
@@ -39,7 +43,8 @@
       multiSelectMode: false,
       selectedIds: [],
       includeArchivedInSearch: false,
-      mobileView: 'list'
+      mobileView: 'list',
+      revealedDeleteNoteId: null
     });
   }
 
@@ -121,12 +126,21 @@
   }
 
   function selectNote(noteId) {
-    store.setState({ selectedNoteId: noteId, mobileView: noteId ? 'editor' : 'list' });
+    store.setState({ selectedNoteId: noteId, mobileView: noteId ? 'editor' : 'list', revealedDeleteNoteId: null });
   }
 
   /** @param {'nav'|'list'|'editor'} view スマホ幅での画面切り替え（PCでは無視される） */
   function setMobileView(view) {
     store.setState({ mobileView: view });
+  }
+
+  /** @param {string} noteId 一覧でのメモ長押しにより削除ボタンを表示する */
+  function revealDeleteForNote(noteId) {
+    store.setState({ revealedDeleteNoteId: noteId });
+  }
+
+  function hideRevealedDelete() {
+    store.setState({ revealedDeleteNoteId: null });
   }
 
   function enterMultiSelect() {
@@ -185,6 +199,8 @@
     setSort: setSort,
     selectNote: selectNote,
     setMobileView: setMobileView,
+    revealDeleteForNote: revealDeleteForNote,
+    hideRevealedDelete: hideRevealedDelete,
     enterMultiSelect: enterMultiSelect,
     exitMultiSelect: exitMultiSelect,
     toggleSelected: toggleSelected,

@@ -9,11 +9,24 @@
 
   var MAX_CHIPS = 3;
 
+  /** 長押しで表示される削除確認オーバーレイ。誤操作防止のため、これ自体をタップしても削除されず、
+   *  中の削除ボタンを別途タップしたときだけ削除される（それ以外の場所のタップは閉じるだけ）。 */
+  function renderDeleteArmedOverlay(note) {
+    return '' +
+      '<div class="note-card note-card--delete-armed" data-action="hideRevealedDelete">' +
+      '  <span class="delete-armed-hint">このメモを削除しますか？</span>' +
+      '  <button type="button" class="btn-delete-armed" data-action="deleteRevealedNote" data-id="' + note.id + '">🗑 削除</button>' +
+      '  <button type="button" class="icon-btn delete-armed-cancel" data-action="hideRevealedDelete" title="キャンセル">✕</button>' +
+      '</div>';
+  }
+
   /**
    * @param {Note} note
-   * @param {{categoryNameById: Object, typeNameById: Object, isSelected: boolean, multiSelectMode: boolean, isChecked: boolean}} ctx
+   * @param {{categoryNameById: Object, typeNameById: Object, isSelected: boolean, multiSelectMode: boolean, isChecked: boolean, isDeleteRevealed: boolean}} ctx
    */
   function render(note, ctx) {
+    if (ctx.isDeleteRevealed) return renderDeleteArmedOverlay(note);
+
     var title = note.title ? c.escapeHtml(note.title) : '<span class="note-title-empty">無題</span>';
     var snippetText = c.escapeHtml(c.snippet(note.content, 88));
     var chips = note.categoryIds.slice(0, MAX_CHIPS).map(function (id) {

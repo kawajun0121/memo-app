@@ -88,7 +88,8 @@
         typeNameById: lookups.typeNameById,
         selectedNoteId: ui.selectedNoteId,
         multiSelectMode: ui.multiSelectMode,
-        selectedIds: ui.selectedIds
+        selectedIds: ui.selectedIds,
+        revealedDeleteNoteId: ui.revealedDeleteNoteId
       };
 
       container.setAttribute('data-mobile-view', ui.mobileView);
