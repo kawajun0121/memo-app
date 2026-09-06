@@ -18,6 +18,9 @@
   --font-sans: -apple-system, "Segoe UI", "Yu Gothic UI", "Hiragino Kaku Gothic ProN", Meiryo, system-ui, sans-serif;
   --radius-sm: 4px;
   --radius-md: 6px;
+  /* メモ一覧カード1件分の高さ。仮想スクロール（render/noteList.js）がこの値を読み取って
+     位置計算するため、画面幅ごとの上書き値も含めここでしか定義しない */
+  --note-card-height: 92px;
 }
 
 * {

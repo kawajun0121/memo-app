@@ -4,27 +4,37 @@
  依存: render/common.js, render/noteCard.js, logic/filtering.js, logic/sorting.js, store/*
 
  【仮想スクロールの方針】
- メモが1万件規模になっても軽快に動くよう、一覧のカードは固定高さ(ROW_HEIGHT)にし、
- スクロール位置から「今見えている範囲」だけHTMLを生成する。スクロール自体はグローバルな
- 状態変化ではないため、appShellの全体再描画は起こさず、noteList内でscrollイベントを直接
- 購読して表示範囲のみ差し替える（mount関数）。
+ メモが1万件規模になっても軽快に動くよう、一覧のカードは固定高さにし、
+ スクロール位置から「今見えている範囲」だけHTMLを生成する。カードの高さはCSS変数
+ --note-card-height（画面幅に応じてlayout.cssが値を切り替える）から読み取り、
+ CSSの実際の見た目と常に一致させている。スクロール自体はグローバルな状態変化ではないため、
+ appShellの全体再描画は起こさず、noteList内でscrollイベントを直接購読して表示範囲のみ
+ 差し替える（mount関数）。
 */
 (function (App) {
   'use strict';
   App.Render = App.Render || {};
   var c = App.Render.common;
 
-  var ROW_HEIGHT = 92;
   var BUFFER_ROWS = 6;
+  var FALLBACK_ROW_HEIGHT = 92;
 
   var lastScrollTop = 0;
   var lastViewKey = null;
   var currentNotesCache = [];
   var currentCtxCache = null;
 
-  function computeVisibleRange(scrollTop, viewportHeight, total) {
-    var start = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - BUFFER_ROWS);
-    var visibleCount = Math.ceil(viewportHeight / ROW_HEIGHT) + BUFFER_ROWS * 2;
+  /** カードの高さはCSS変数 --note-card-height で決まる（画面幅に応じてlayout.cssが切り替える）。
+   *  仮想スクロールの位置計算をCSSの実際の値と必ず一致させるため、ここで読み取って使う。 */
+  function getRowHeight() {
+    var value = getComputedStyle(document.documentElement).getPropertyValue('--note-card-height');
+    var px = parseFloat(value);
+    return px > 0 ? px : FALLBACK_ROW_HEIGHT;
+  }
+
+  function computeVisibleRange(scrollTop, viewportHeight, total, rowHeight) {
+    var start = Math.max(0, Math.floor(scrollTop / rowHeight) - BUFFER_ROWS);
+    var visibleCount = Math.ceil(viewportHeight / rowHeight) + BUFFER_ROWS * 2;
     var end = Math.min(total, start + visibleCount);
     return { start: start, end: end };
   }
@@ -50,7 +60,6 @@
       '    <button type="button" class="icon-btn mobile-only" data-action="setMobileViewNav" title="メニュー">☰</button>' +
       '    <h2 class="note-list-title">' + c.escapeHtml(ui.viewMeta.label) + '</h2>' +
       '    <span class="note-list-count">' + resultCount + '件</span>' +
-      '    <button type="button" class="btn-icon btn-new-note" data-action="createFullNote" title="新規作成（タイトル・カテゴリ・種類も設定できます）">＋ 作成</button>' +
       '  </div>' +
       '  <div class="note-list-controls">' +
       '    <input type="search" class="search-input" id="searchInput" placeholder="検索 (Ctrl+K)" value="' + c.escapeHtml(ui.filter.keyword) + '" data-role="search-input" />' +
@@ -91,10 +100,11 @@
       lastViewKey = viewKey;
     }
 
+    var rowHeight = getRowHeight();
     var viewportHeight = 600; // 初期HTML生成時は未マウントのため概算。mount()で実測して補正する。
-    var range = computeVisibleRange(lastScrollTop, viewportHeight, notes.length);
-    var totalHeight = notes.length * ROW_HEIGHT;
-    var offsetTop = range.start * ROW_HEIGHT;
+    var range = computeVisibleRange(lastScrollTop, viewportHeight, notes.length, rowHeight);
+    var totalHeight = notes.length * rowHeight;
+    var offsetTop = range.start * rowHeight;
 
     var emptyState = notes.length === 0 ?
       '<div class="note-list-empty">該当するメモがありません</div>' : '';
@@ -118,8 +128,9 @@
     var scroller = document.getElementById('noteListScroller');
     var rowsEl = document.getElementById('noteListRows');
     if (!scroller || !rowsEl || !currentCtxCache) return;
-    var range = computeVisibleRange(scroller.scrollTop, scroller.clientHeight, currentNotesCache.length);
-    var offsetTop = range.start * ROW_HEIGHT;
+    var rowHeight = getRowHeight();
+    var range = computeVisibleRange(scroller.scrollTop, scroller.clientHeight, currentNotesCache.length, rowHeight);
+    var offsetTop = range.start * rowHeight;
     rowsEl.style.transform = 'translateY(' + offsetTop + 'px)';
     rowsEl.innerHTML = renderRowsHtml(currentNotesCache, range.start, range.end, currentCtxCache);
     lastScrollTop = scroller.scrollTop;
@@ -136,5 +147,5 @@
     patchVisibleRows();
   }
 
-  App.Render.noteList = { render: render, mount: mount, ROW_HEIGHT: ROW_HEIGHT };
+  App.Render.noteList = { render: render, mount: mount };
 })(window.MemoApp = window.MemoApp || {});

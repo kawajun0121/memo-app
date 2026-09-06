@@ -1,7 +1,7 @@
 /*
  役割: グローバルキーボードショートカット。
-   Ctrl+K: 検索欄にフォーカス / Ctrl+N: 新規メモ / Ctrl+Shift+M: クイックメモにフォーカス / Esc: 閉じる
- 依存: store/uiStore.js, render/quickCapture.js
+   Ctrl+K: 検索欄にフォーカス / Ctrl+N: 新規メモ作成 / Esc: 閉じる
+ 依存: store/uiStore.js
  【注意】Ctrl+N等は一部ブラウザ（タブとして開いている場合）でブラウザ自体のショートカットが
  優先されることがある。PWAとしてインストールして使うと確実に動作する。
 */
@@ -40,12 +40,6 @@
 
       if (evt.key === 'Escape') {
         if (closeTopmostOverlay()) evt.preventDefault();
-        return;
-      }
-
-      if (mod && evt.shiftKey && (evt.key === 'M' || evt.key === 'm')) {
-        evt.preventDefault();
-        App.Render.quickCapture.focusInput();
         return;
       }
 

@@ -165,7 +165,7 @@
   display: flex;
   gap: 8px;
   align-items: flex-start;
-  height: 92px;
+  height: var(--note-card-height);
   padding: 10px 14px;
   border-bottom: 1px solid var(--color-border);
   cursor: pointer;

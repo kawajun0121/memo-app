@@ -1,5 +1,5 @@
 /*
- 役割: アプリ全体（クイック入力・3カラム・各種モーダル）を1画面内で組み立てる最上位モジュール。
+ 役割: アプリ全体（3カラム・画面下部の新規作成ボタン・各種モーダル）を1画面内で組み立てる最上位モジュール。
        イベント委譲リスナーもここで#appに1回だけ設置する。
  依存: render/配下のすべてのモジュール, store/配下のすべてのストア
 
@@ -98,14 +98,15 @@
         App.Render.noteList.render(notes, listCtx, ui) +
         App.Render.noteEditor.render(selectedNote) +
         '</div>' +
-        App.Render.quickCapture.render() +
+        '<div class="bottom-bar">' +
+        '  <button type="button" class="btn-create-note" data-action="createFullNote">＋ 新規作成</button>' +
+        '</div>' +
         App.Render.historyPanel.render(ui) +
         App.Render.categoryManagerModal.render(ui) +
         App.Render.aiSuggestPanel.render(ui) +
         App.Render.savedViewModal.render(ui) +
         App.Render.settingsModal.render(ui);
 
-      App.Render.quickCapture.mount();
       App.Render.noteList.mount();
       App.Render.noteEditor.mount(selectedNote);
     });
