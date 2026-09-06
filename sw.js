@@ -3,12 +3,16 @@
  開けるようキャッシュする。メモデータ自体はIndexedDBに保存されており、
  このファイルとは無関係にオフラインでも読み書きできる。
 
+ 【キャッシュ戦略】ネットワーク優先・失敗時のみキャッシュにフォールバックする方式にしている
+ （「まずネットワークから最新を取りに行き、取れたらキャッシュも更新する」）。
+ これにより、index.htmlを更新してデプロイすれば次回オンライン時に必ず最新が反映される
+ （古いキャッシュが残り続けて更新に気づけない、という事態を避けるため）。
+ オフライン時のみ、最後に取得できたキャッシュ内容で開ける。
+
  【注意】新しいJSファイルをindex.htmlに追加したときは、下のASSETSにも同じパスを
- 追記すること（キャッシュに含まれないと更新後に404になる場合がある）。
- CACHE_NAMEのバージョン番号は、キャッシュの中身を入れ替えたいとき（ファイルを追加/削除したとき）
- に上げる。中身を変えずにバージョンだけ上げても更新はされない点に注意。
+ 追記すること（初回アクセス時にまとめて先読みキャッシュされる）。
 */
-var CACHE_NAME = 'memo-app-cache-v1';
+var CACHE_NAME = 'memo-app-cache-v2';
 
 var ASSETS = [
   './',
@@ -91,12 +95,17 @@ self.addEventListener('activate', function (event) {
   );
 });
 
-// キャッシュ優先、なければネットワーク（オフラインでもアプリ本体は開けるようにする）
+// ネットワーク優先。取得できたら表示しつつキャッシュも更新し、
+// オフライン等で失敗した場合のみキャッシュ内容を返す。
 self.addEventListener('fetch', function (event) {
   if (event.request.method !== 'GET') return;
   event.respondWith(
-    caches.match(event.request).then(function (cached) {
-      return cached || fetch(event.request);
+    fetch(event.request).then(function (response) {
+      var copy = response.clone();
+      caches.open(CACHE_NAME).then(function (cache) { cache.put(event.request, copy); });
+      return response;
+    }).catch(function () {
+      return caches.match(event.request);
     })
   );
 });
