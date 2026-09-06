@@ -2,14 +2,14 @@
  役割: 画面全体の骨組み（クイック入力バー・3カラム構成）のレイアウト。
 */
 
-/* ---------- クイック入力 ---------- */
+/* ---------- クイック入力（画面最下部に固定） ---------- */
 .quick-capture {
   flex: none;
   display: flex;
   align-items: flex-start;
   gap: 10px;
   padding: 10px 16px;
-  border-bottom: 1px solid var(--color-border);
+  border-top: 1px solid var(--color-border);
   background: var(--color-bg);
   position: relative;
 }

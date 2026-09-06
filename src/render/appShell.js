@@ -93,12 +93,12 @@
 
       container.setAttribute('data-mobile-view', ui.mobileView);
       container.innerHTML = '' +
-        App.Render.quickCapture.render() +
         '<div class="app-body" data-mobile-view="' + ui.mobileView + '">' +
         App.Render.sidebar.render() +
         App.Render.noteList.render(notes, listCtx, ui) +
         App.Render.noteEditor.render(selectedNote) +
         '</div>' +
+        App.Render.quickCapture.render() +
         App.Render.historyPanel.render(ui) +
         App.Render.categoryManagerModal.render(ui) +
         App.Render.aiSuggestPanel.render(ui) +
