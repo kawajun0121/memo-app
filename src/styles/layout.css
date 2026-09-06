@@ -284,7 +284,7 @@
   }
 
   :root {
-    --note-card-height: 132px;
+    --note-card-height: 148px;
   }
 
   .app-body {
@@ -335,17 +335,17 @@
     width: 100%;
   }
 
-  /* タッチ操作しやすいよう主要なボタンを大きくする（Appleの推奨タップ領域44pt相当を目安） */
+  /* タッチ操作しやすいよう主要なボタンを大きくする（Appleの推奨タップ領域44ptより一回り大きめ） */
   .icon-btn {
-    width: 40px;
-    height: 40px;
-    font-size: 18px;
+    width: 48px;
+    height: 48px;
+    font-size: 22px;
   }
 
   .icon-btn--small {
-    width: 32px;
-    height: 32px;
-    font-size: 15px;
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
   }
 
   .btn-text,
@@ -391,22 +391,27 @@
 
   .nav-item,
   .nav-item--saved-view .nav-item-main {
-    padding: 13px 12px;
-    font-size: 16px;
+    padding: 17px 14px;
+    font-size: 18px;
+    gap: 12px;
   }
 
   .nav-icon {
-    font-size: 17px;
+    font-size: 20px;
   }
 
   .nav-count {
-    font-size: 14px;
+    font-size: 15px;
   }
 
   /* メモ一覧 */
   .note-list-toolbar {
-    padding: 14px 16px 10px;
-    gap: 10px;
+    padding: 16px 16px 12px;
+    gap: 12px;
+  }
+
+  .note-list-title-row {
+    min-height: 48px;
   }
 
   .note-list-title {
@@ -439,6 +444,10 @@
     margin-top: 5px;
   }
 
+  .note-card-flags {
+    gap: 4px;
+  }
+
   .note-title {
     font-size: 16px;
   }
@@ -456,10 +465,15 @@
     font-size: 12.5px;
   }
 
-  /* メモ編集: フラグボタン */
+  /* メモ編集: フラグボタン（お気に入り・ピン留め・あとで整理・アーカイブ・ゴミ箱へ） */
   .flag-btn {
-    padding: 10px 14px;
-    font-size: 14.5px;
+    padding: 15px 18px;
+    font-size: 16px;
+    min-height: 48px;
+  }
+
+  .note-editor-flags {
+    gap: 10px;
   }
 
   .autosave-status {
