@@ -71,6 +71,17 @@
   background: var(--color-bg-hover);
 }
 
+.btn-new-note {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.btn-new-note:hover {
+  background: var(--color-accent-bg);
+}
+
 .toolbar-checkbox {
   display: inline-flex;
   align-items: center;

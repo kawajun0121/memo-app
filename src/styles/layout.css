@@ -131,10 +131,19 @@
   gap: 8px;
 }
 
+.btn-new-note {
+  margin-left: auto;
+  flex: none;
+}
+
 .note-list-title {
   margin: 0;
   font-size: 15px;
   font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .note-list-count {

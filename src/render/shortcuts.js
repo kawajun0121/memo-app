@@ -34,15 +34,6 @@
     }
   }
 
-  function createAndOpenNewNote() {
-    var note = App.Store.notesStore.create({});
-    App.Store.uiStore.selectNote(note.id);
-    setTimeout(function () {
-      var titleInput = document.getElementById('noteTitleInput');
-      if (titleInput) titleInput.focus();
-    }, 0);
-  }
-
   function init() {
     document.addEventListener('keydown', function (evt) {
       var mod = evt.ctrlKey || evt.metaKey;
@@ -67,7 +58,7 @@
       if (mod && !evt.shiftKey && (evt.key === 'n' || evt.key === 'N')) {
         if (isEditableTarget(evt.target)) return;
         evt.preventDefault();
-        createAndOpenNewNote();
+        App.Actions['createFullNote']();
         return;
       }
     });

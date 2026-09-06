@@ -50,6 +50,7 @@
       '    <button type="button" class="icon-btn mobile-only" data-action="setMobileViewNav" title="メニュー">☰</button>' +
       '    <h2 class="note-list-title">' + c.escapeHtml(ui.viewMeta.label) + '</h2>' +
       '    <span class="note-list-count">' + resultCount + '件</span>' +
+      '    <button type="button" class="btn-icon btn-new-note" data-action="createFullNote" title="新規作成（タイトル・カテゴリ・種類も設定できます）">＋ 作成</button>' +
       '  </div>' +
       '  <div class="note-list-controls">' +
       '    <input type="search" class="search-input" id="searchInput" placeholder="検索 (Ctrl+K)" value="' + c.escapeHtml(ui.filter.keyword) + '" data-role="search-input" />' +
