@@ -285,6 +285,7 @@
 
   :root {
     --note-card-height: 168px;
+    --swipe-delete-width: 104px;
   }
 
   .app-body {
@@ -444,13 +445,8 @@
     margin-top: 5px;
   }
 
-  .delete-armed-hint {
-    font-size: 15px;
-  }
-
-  .btn-delete-armed {
-    padding: 12px 20px;
-    font-size: 16px;
+  .note-swipe-delete-btn {
+    font-size: 13px;
   }
 
   .note-card-flags {

@@ -25,18 +25,27 @@
     el.classList.toggle('is-saving', !!isSaving);
   }
 
-  function scheduleSave(noteId, getPatch) {
+  /**
+   * @param {string} noteId
+   * @param {() => Partial<Note>} getPatch
+   * @param {() => boolean} isComposing 日本語入力などのIME変換中かどうか
+   */
+  function scheduleSave(noteId, getPatch, isComposing) {
     if (pending && pending.noteId !== noteId) {
       pending.flush();
     }
     if (!pending || pending.noteId !== noteId) {
       var debounced = App.Logic.debounce(function () {
+        // IME変換中に保存すると、直後の再描画でinput/textareaのDOM要素が作り直され、
+        // 変換中の文字が消えたり表示が乱れたりする不具合が起きるため、変換が終わるまで待つ。
+        // compositionendのタイミングで改めてscheduleSave()が呼ばれるため、そこで再度保存される。
+        if (isComposing && isComposing()) return;
         setStatus('保存中…', true);
         App.Store.notesStore.update(noteId, getPatch()).then(function () {
           setStatus('保存済み', false);
         }).catch(function () {
           setStatus('保存に失敗しました（再試行します）', false);
-          scheduleSave(noteId, getPatch);
+          scheduleSave(noteId, getPatch, isComposing);
         });
       }, AUTOSAVE_DELAY_MS);
       pending = { noteId: noteId, flush: debounced.flush, cancel: debounced.cancel, trigger: debounced };
@@ -136,14 +145,32 @@
       };
     }
 
+    // 日本語入力（IME）などの変換中は、compositionstart〜compositionendの間trueになる。
+    // 変換確定前に自動保存の再描画が起きて入力中の文字が消える不具合を防ぐために使う。
+    var titleComposing = false;
+    var contentComposing = false;
+    function isComposing() {
+      return titleComposing || contentComposing;
+    }
+
     if (titleInput) {
+      titleInput.addEventListener('compositionstart', function () { titleComposing = true; });
+      titleInput.addEventListener('compositionend', function () {
+        titleComposing = false;
+        scheduleSave(note.id, currentPatch, isComposing);
+      });
       titleInput.addEventListener('input', function () {
-        scheduleSave(note.id, currentPatch);
+        scheduleSave(note.id, currentPatch, isComposing);
       });
     }
     if (contentInput) {
+      contentInput.addEventListener('compositionstart', function () { contentComposing = true; });
+      contentInput.addEventListener('compositionend', function () {
+        contentComposing = false;
+        scheduleSave(note.id, currentPatch, isComposing);
+      });
       contentInput.addEventListener('input', function () {
-        scheduleSave(note.id, currentPatch);
+        scheduleSave(note.id, currentPatch, isComposing);
       });
     }
     if (categoryAddInput) {

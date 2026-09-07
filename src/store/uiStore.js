@@ -23,9 +23,9 @@
     // スマホ幅（iPhone等）でのみ使う画面切り替え。'nav'=ナビゲーション / 'list'=メモ一覧 / 'editor'=メモ本文。
     // PC幅では3カラム同時表示のためCSS側でこの値は無視される。
     mobileView: 'list',
-    // 一覧でメモを長押しした際に「削除」ボタンを表示中のメモID（1件のみ）。
-    // 誤操作防止のため、長押し直後の1回のタップでは削除せず、削除ボタン自体を
-    // 別途タップしたときのみ実際に削除する（render/noteList.jsの長押し検出とセット）。
+    // 一覧でメモを左にスワイプした際、裏の「削除」ボタンが見えている状態のメモID（1件のみ）。
+    // iPhone純正メモアプリと同様、スワイプで開いた後に削除ボタン自体を別途タップしたときのみ
+    // 実際に削除する（render/noteList.jsのスワイプ検出とセット）。
     revealedDeleteNoteId: null
   });
 
@@ -134,7 +134,7 @@
     store.setState({ mobileView: view });
   }
 
-  /** @param {string} noteId 一覧でのメモ長押しにより削除ボタンを表示する */
+  /** @param {string} noteId 一覧でのメモのスワイプにより削除ボタンを表示する */
   function revealDeleteForNote(noteId) {
     store.setState({ revealedDeleteNoteId: noteId });
   }

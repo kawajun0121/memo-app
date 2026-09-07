@@ -1,6 +1,11 @@
 /*
  役割: メモ一覧の1件分のカードHTML生成。
  依存: render/common.js, logic/dateUtils.js
+
+ 【スワイプで削除】iPhone純正メモアプリに合わせ、カードを左にスワイプすると裏に隠れている
+ 赤い「削除」ボタンが現れる（render/noteList.jsがドラッグを検出し、このカード自身をtranslateXで
+ 動かす）。ドラッグ操作自体はDOM直接操作で行うため、ここでは「現在開いているかどうか
+ （ctx.isDeleteRevealed）」に応じた初期transformだけを描画すればよい。
 */
 (function (App) {
   'use strict';
@@ -9,24 +14,11 @@
 
   var MAX_CHIPS = 3;
 
-  /** 長押しで表示される削除確認オーバーレイ。誤操作防止のため、これ自体をタップしても削除されず、
-   *  中の削除ボタンを別途タップしたときだけ削除される（それ以外の場所のタップは閉じるだけ）。 */
-  function renderDeleteArmedOverlay(note) {
-    return '' +
-      '<div class="note-card note-card--delete-armed" data-action="hideRevealedDelete">' +
-      '  <span class="delete-armed-hint">このメモを削除しますか？</span>' +
-      '  <button type="button" class="btn-delete-armed" data-action="deleteRevealedNote" data-id="' + note.id + '">🗑 削除</button>' +
-      '  <button type="button" class="icon-btn delete-armed-cancel" data-action="hideRevealedDelete" title="キャンセル">✕</button>' +
-      '</div>';
-  }
-
   /**
    * @param {Note} note
    * @param {{categoryNameById: Object, typeNameById: Object, isSelected: boolean, multiSelectMode: boolean, isChecked: boolean, isDeleteRevealed: boolean}} ctx
    */
   function render(note, ctx) {
-    if (ctx.isDeleteRevealed) return renderDeleteArmedOverlay(note);
-
     var title = note.title ? c.escapeHtml(note.title) : '<span class="note-title-empty">無題</span>';
     var snippetText = c.escapeHtml(c.snippet(note.content, 88));
     var chips = note.categoryIds.slice(0, MAX_CHIPS).map(function (id) {
@@ -39,8 +31,12 @@
     if (ctx.isSelected) classes.push('is-selected');
     if (note.needsOrganizing) classes.push('has-organize-flag');
 
+    var frontStyle = ctx.isDeleteRevealed ? ' style="transform:translateX(calc(-1 * var(--swipe-delete-width)))"' : '';
+
     return '' +
-      '<div class="' + classes.join(' ') + '" data-action="openNote" data-id="' + note.id + '">' +
+      '<div class="note-card-swipe" data-swipe-id="' + note.id + '">' +
+      '  <button type="button" class="note-swipe-delete-btn" data-action="deleteRevealedNote" data-id="' + note.id + '">🗑<br>削除</button>' +
+      '  <div class="' + classes.join(' ') + '" data-action="openNote" data-id="' + note.id + '"' + frontStyle + '>' +
       (ctx.multiSelectMode ?
         '<input type="checkbox" class="note-checkbox" data-action-change="toggleNoteChecked" data-id="' + note.id + '" ' + (ctx.isChecked ? 'checked' : '') + ' />' :
         '') +
@@ -58,6 +54,7 @@
       '    </span>' +
       '  </div>' +
       '</div>' +
+      '  </div>' +
       '</div>';
   }
 

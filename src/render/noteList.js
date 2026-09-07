@@ -3,9 +3,12 @@
        自前の仮想スクロールによる一覧本体を担当する。
  依存: render/common.js, render/noteCard.js, logic/filtering.js, logic/sorting.js, store/*
 
- 【長押しで削除】カードをpointerdownしたまま500ms動かさずにいると、store/uiStore.jsの
- revealedDeleteNoteIdをそのメモIDにして削除確認オーバーレイを表示する（render/noteCard.js）。
- 長押し成立直後に発生する合成クリックは誤って削除/キャンセルを起動しないよう1回だけ握りつぶす。
+ 【スワイプで削除】iPhone純正メモアプリと同様、カードを左にドラッグすると裏の赤い削除ボタンが
+ 現れる。ドラッグ中はこのモジュールがカード要素のtransformを直接書き換えて追従させ（60fps相当の
+ 滑らかさのため、状態管理やDOM再構築は経由しない）、指を離した時点でどれだけ開いたかに応じて
+ 「全開（store/uiStore.jsのrevealedDeleteNoteIdをセット）」か「閉じる」かにスナップする。
+ 開いている間に別のメモをタップ/ドラッグしたり削除ボタン以外の場所をタップした場合は
+ 閉じるだけで削除は起きない（main.jsのopenNoteアクション側でも二重にガードしている）。
 
  【仮想スクロールの方針】
  メモが1万件規模になっても軽快に動くよう、一覧のカードは固定高さにし、
@@ -141,60 +144,103 @@
     lastScrollTop = scroller.scrollTop;
   }
 
-  var LONG_PRESS_MS = 500;
-  var MOVE_CANCEL_THRESHOLD = 10;
-  var longPressTimer = null;
-  var longPressStartX = 0;
-  var longPressStartY = 0;
-  var suppressNextClick = false;
+  var SWIPE_INTENT_THRESHOLD = 8; // これ未満の移動はタップとみなしスワイプ扱いにしない
+  var VERTICAL_CANCEL_RATIO = 1.2; // 縦方向の動きが横方向よりこの倍率以上大きければスクロールとみなす
 
-  function clearLongPressTimer() {
-    if (longPressTimer) {
-      clearTimeout(longPressTimer);
-      longPressTimer = null;
-    }
+  function getSwipeDeleteWidth() {
+    var value = getComputedStyle(document.documentElement).getPropertyValue('--swipe-delete-width');
+    var px = parseFloat(value);
+    return px > 0 ? px : 88;
   }
 
-  /** 一覧のメモを長押しすると削除ボタンを表示する（誤操作防止のため、長押し直後の
-   *  クリックは削除にもキャンセルにもつながらないよう抑制する）。 */
-  function attachLongPressToDelete(scroller) {
+  /** 一覧のメモを左にスワイプすると裏の削除ボタンが現れる（iPhone純正メモアプリを参考にした挙動）。
+   *  ドラッグ中はcardのtransformを直接動かし、指を離した時点で開くか閉じるかスナップする。 */
+  function attachSwipeToDelete(scroller) {
+    var dragCard = null;
+    var dragNoteId = null;
+    var dragBaseOffset = 0;
+    var dragStartX = 0;
+    var dragStartY = 0;
+    var dragOffset = 0;
+    var dragMode = null; // null | 'horizontal' | 'vertical'
+
+    function isCardRevealed(card) {
+      return card.getAttribute('data-id') === App.Store.uiStore.getState().revealedDeleteNoteId;
+    }
+
+    function endDrag() {
+      if (!dragCard) return;
+      var actionWidth = getSwipeDeleteWidth();
+      var card = dragCard;
+      var noteId = dragNoteId;
+      var offset = dragOffset;
+      var mode = dragMode;
+      dragCard = null;
+      dragNoteId = null;
+      dragMode = null;
+
+      card.classList.remove('is-dragging');
+      if (mode === null) return; // タップのみ（ドラッグ未成立）だった場合はそのまま通常のクリックに任せる
+
+      var shouldOpen = offset <= -actionWidth / 2;
+      card.style.transform = shouldOpen ? 'translateX(' + (-actionWidth) + 'px)' : '';
+      if (shouldOpen) {
+        App.Store.uiStore.revealDeleteForNote(noteId);
+      } else if (App.Store.uiStore.getState().revealedDeleteNoteId === noteId) {
+        App.Store.uiStore.hideRevealedDelete();
+      }
+    }
+
     scroller.addEventListener('pointerdown', function (evt) {
       if (evt.pointerType === 'mouse' && evt.button !== 0) return;
       var card = evt.target.closest('.note-card');
-      if (!card || card.classList.contains('note-card--delete-armed')) return;
+      if (!card) return;
       var noteId = card.getAttribute('data-id');
-      if (!noteId) return;
 
-      longPressStartX = evt.clientX;
-      longPressStartY = evt.clientY;
-      clearLongPressTimer();
-      longPressTimer = setTimeout(function () {
-        longPressTimer = null;
-        suppressNextClick = true;
-        App.Store.uiStore.revealDeleteForNote(noteId);
-      }, LONG_PRESS_MS);
+      // 既に開いている別のメモがあれば先に閉じる。これは#appの再描画を伴い、
+      // 上で取得したcard要素がDOMから切り離される（作り直される）ため、
+      // 再描画後のDOMから改めて取得し直す。
+      var revealedId = App.Store.uiStore.getState().revealedDeleteNoteId;
+      if (revealedId && revealedId !== noteId) {
+        App.Store.uiStore.hideRevealedDelete();
+        card = scroller.querySelector('.note-card[data-id="' + noteId + '"]');
+        if (!card) return;
+      }
+
+      dragCard = card;
+      dragNoteId = noteId;
+      dragBaseOffset = isCardRevealed(card) ? -getSwipeDeleteWidth() : 0;
+      dragStartX = evt.clientX;
+      dragStartY = evt.clientY;
+      dragOffset = dragBaseOffset;
+      dragMode = null;
     });
 
     scroller.addEventListener('pointermove', function (evt) {
-      if (!longPressTimer) return;
-      var dx = Math.abs(evt.clientX - longPressStartX);
-      var dy = Math.abs(evt.clientY - longPressStartY);
-      if (dx > MOVE_CANCEL_THRESHOLD || dy > MOVE_CANCEL_THRESHOLD) clearLongPressTimer();
-    });
+      if (!dragCard) return;
+      var dx = evt.clientX - dragStartX;
+      var dy = evt.clientY - dragStartY;
 
-    scroller.addEventListener('pointerup', clearLongPressTimer);
-    scroller.addEventListener('pointercancel', clearLongPressTimer);
-    scroller.addEventListener('pointerleave', clearLongPressTimer);
-
-    // 長押しが成立した直後に発生する合成クリック（タップ→離す）を1回だけ無効化する。
-    // キャプチャフェーズにしてrender/common.jsの委譲リスナー（#appのバブリング）より先に止める。
-    scroller.addEventListener('click', function (evt) {
-      if (suppressNextClick) {
-        suppressNextClick = false;
-        evt.preventDefault();
-        evt.stopPropagation();
+      if (dragMode === null) {
+        if (Math.abs(dx) < SWIPE_INTENT_THRESHOLD && Math.abs(dy) < SWIPE_INTENT_THRESHOLD) return;
+        if (Math.abs(dy) > Math.abs(dx) * VERTICAL_CANCEL_RATIO) {
+          // 縦方向の動きが優勢 → スクロール操作とみなし、このカードの追跡をやめる（スクロールは妨げない）
+          dragCard = null;
+          dragMode = null;
+          return;
+        }
+        dragMode = 'horizontal';
+        dragCard.classList.add('is-dragging');
       }
-    }, true);
+
+      var actionWidth = getSwipeDeleteWidth();
+      dragOffset = Math.max(-actionWidth, Math.min(0, dragBaseOffset + dx));
+      dragCard.style.transform = 'translateX(' + dragOffset + 'px)';
+      evt.preventDefault();
+    }, { passive: false });
+
+    scroller.addEventListener('pointerup', endDrag);
+    scroller.addEventListener('pointercancel', endDrag);
   }
 
   function mount() {
@@ -204,7 +250,7 @@
     scroller.addEventListener('scroll', function () {
       window.requestAnimationFrame(patchVisibleRows);
     });
-    attachLongPressToDelete(scroller);
+    attachSwipeToDelete(scroller);
     // 実際のビューポート高さで再計算（初回描画時の概算600pxとズレるため）
     patchVisibleRows();
   }

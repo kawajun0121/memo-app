@@ -161,6 +161,12 @@
   // ---------- メモ単体操作 ----------
 
   App.Actions['openNote'] = function (d) {
+    // スワイプで削除ボタンが開いている間のタップは、メモを開かず閉じるだけにする
+    // （iPhone純正メモアプリ等と同様の挙動）。同じカードを再タップした場合はこちらに入る。
+    if (App.Store.uiStore.getState().revealedDeleteNoteId) {
+      App.Store.uiStore.hideRevealedDelete();
+      return;
+    }
     App.Store.uiStore.selectNote(d.id);
   };
 
@@ -175,7 +181,7 @@
     }, 0);
   };
 
-  // 一覧での長押し削除（誤操作防止のため、削除ボタン自体をタップしたときだけ実行される）
+  // 一覧でのスワイプ削除（削除ボタン自体をタップしたときだけ実行される）
   App.Actions['hideRevealedDelete'] = function () {
     App.Store.uiStore.hideRevealedDelete();
   };

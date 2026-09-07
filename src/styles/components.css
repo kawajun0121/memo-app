@@ -160,15 +160,42 @@
   font-weight: 600;
 }
 
-/* ---------- メモカード ---------- */
+/* ---------- メモカード（スワイプで削除。iPhone純正メモアプリを参考にした構成） ----------
+   .note-card-swipe が行の器（高さ固定・overflow:hidden）、その中に
+   ①裏に常駐する赤い削除ボタン(.note-swipe-delete-btn)と
+   ②手前に重なる本来のカード内容(.note-card、左にドラッグして動かす)を重ねて置く。 */
+.note-card-swipe {
+  position: relative;
+  height: var(--note-card-height);
+  overflow: hidden;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.note-swipe-delete-btn {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--swipe-delete-width);
+  background: var(--color-danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+}
+
 .note-card {
+  position: relative;
   display: flex;
   gap: 8px;
   align-items: flex-start;
-  height: var(--note-card-height);
+  height: 100%;
   padding: 10px 14px;
-  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
   cursor: pointer;
+  transition: transform 0.2s ease;
+  touch-action: pan-y;
 }
 
 .note-card:hover {
@@ -183,32 +210,8 @@
   box-shadow: inset 3px 0 0 var(--color-warning-bg);
 }
 
-/* 長押しで表示される削除確認オーバーレイ */
-.note-card--delete-armed {
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  background: var(--color-danger-bg);
-  cursor: default;
-}
-
-.delete-armed-hint {
-  font-size: 13px;
-  color: var(--color-text-muted);
-}
-
-.btn-delete-armed {
-  padding: 8px 16px;
-  border-radius: var(--radius-md);
-  background: var(--color-danger);
-  color: #fff;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.delete-armed-cancel {
-  flex: none;
-  color: var(--color-text-muted);
+.note-card.is-dragging {
+  transition: none;
 }
 
 .note-checkbox {
