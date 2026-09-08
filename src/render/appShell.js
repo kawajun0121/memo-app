@@ -86,16 +86,25 @@
   }
 
   var EDITABLE_NOTE_FIELD_IDS = { noteContentInput: true };
-  var lastRenderedSelectedNoteId = undefined; // undefined = まだ一度も描画していない
+  var lastRenderedNoteKey = undefined; // undefined = まだ一度も描画していない
   var renderPendingDeferred = false;
+
+  /** 「今開いている」メモを一意に識別するキー。下書き（uiStore.draftNote）と、最初の入力で
+   *  昇格した後の実メモは同じidを使う設計にしてあるため（main.jsのpromoteDraft参照）、
+   *  下書き→保存後もこのキーは変わらず、以下のisEditingCurrentNoteField()が
+   *  「同じ編集セッションの続き」と正しく判定できる（＝入力欄が作り直されずフォーカスが保たれる）。 */
+  function currentNoteKey(ui) {
+    if (ui.draftNote) return ui.draftNote.id;
+    return ui.selectedNoteId;
+  }
 
   /** 「今まさにこのメモの本文欄（1行目がタイトルを兼ねる）を編集中で、かつメモ自体は
    *  切り替わっていない」かどうか。この場合だけ再描画を保留する（別メモ・別ビューへの
    *  切り替えは対象外にし、即座に反映させる）。 */
-  function isEditingCurrentNoteField(currentSelectedNoteId) {
+  function isEditingCurrentNoteField(noteKey) {
     var activeId = document.activeElement && document.activeElement.id;
     if (!EDITABLE_NOTE_FIELD_IDS[activeId]) return false;
-    return currentSelectedNoteId === lastRenderedSelectedNoteId;
+    return noteKey === lastRenderedNoteKey;
   }
 
   /** タイトル/本文欄からフォーカスが外れた時などに、保留していた再描画があれば実行する。 */
@@ -107,8 +116,8 @@
   }
 
   function renderAll() {
-    var pendingSelectedNoteId = App.Store.uiStore.getState().selectedNoteId;
-    if (isEditingCurrentNoteField(pendingSelectedNoteId)) {
+    var pendingUi = App.Store.uiStore.getState();
+    if (isEditingCurrentNoteField(currentNoteKey(pendingUi))) {
       renderPendingDeferred = true;
       return;
     }
@@ -119,8 +128,12 @@
       var lookups = buildLookups();
       var notes = getVisibleNotes(ui, lookups);
       lastRenderedNotes = notes;
-      lastRenderedSelectedNoteId = ui.selectedNoteId;
-      var selectedNote = ui.selectedNoteId ? App.Store.notesStore.getById(ui.selectedNoteId) : null;
+      lastRenderedNoteKey = currentNoteKey(ui);
+      var selectedNote = ui.draftNote || (ui.selectedNoteId ? App.Store.notesStore.getById(ui.selectedNoteId) : null);
+
+      var totalScopeCount = ui.viewMeta.kind === 'trash'
+        ? App.Store.notesStore.getTrashed().length
+        : App.Store.notesStore.getAllActive().length;
 
       var listCtx = {
         categoryNameById: lookups.categoryNameById,
@@ -128,7 +141,8 @@
         selectedNoteId: ui.selectedNoteId,
         multiSelectMode: ui.multiSelectMode,
         selectedIds: ui.selectedIds,
-        revealedDeleteNoteId: ui.revealedDeleteNoteId
+        revealedDeleteNoteId: ui.revealedDeleteNoteId,
+        totalScopeCount: totalScopeCount
       };
 
       container.setAttribute('data-mobile-view', ui.mobileView);
@@ -137,15 +151,17 @@
         App.Render.sidebar.render() +
         App.Render.noteList.render(notes, listCtx, ui) +
         App.Render.noteEditor.render(selectedNote) +
+        App.Render.searchScreen.render(ui) +
         '</div>' +
-        '<div class="bottom-bar">' +
-        '  <button type="button" class="btn-create-note" data-action="createFullNote">＋ 新規作成</button>' +
-        '</div>' +
+        (ui.mobileView === 'list' ? '<button type="button" class="fab-create mobile-only" data-action="createFullNote" title="新しいメモを作成" aria-label="新しいメモを作成">＋</button>' : '') +
+        App.Render.bottomNav.render(ui) +
+        App.Render.toast.render(ui) +
         App.Render.historyPanel.render(ui) +
         App.Render.categoryManagerModal.render(ui) +
         App.Render.aiSuggestPanel.render(ui) +
         App.Render.savedViewModal.render(ui) +
-        App.Render.settingsModal.render(ui);
+        App.Render.settingsModal.render(ui) +
+        App.Render.sheet.renderAll(ui, selectedNote);
 
       App.Render.noteList.mount();
       App.Render.noteEditor.mount(selectedNote);

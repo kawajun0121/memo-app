@@ -1,5 +1,7 @@
 /*
  役割: リセット・配色トークン・タイポグラフィなど、全体の土台となるスタイル。
+       モバイルファースト（iPhoneでの利用を最優先）の構成のため、無指定時の値はスマホ向けを基準にし、
+       PC（768px以上）はlayout.css/components.css側の@media (min-width:768px)で調整する。
 */
 :root {
   --color-bg: #ffffff;
@@ -8,8 +10,8 @@
   --color-border: #e4e4e7;
   --color-border-strong: #d4d4d8;
   --color-text: #1f2023;
-  --color-text-muted: #6b6f76;
-  --color-text-faint: #9a9ea5;
+  --color-text-muted: #52565d;
+  --color-text-faint: #6f7379;
   --color-accent: #4f5bd5;
   --color-accent-bg: #eef0fd;
   --color-danger: #d33b3b;
@@ -19,11 +21,41 @@
   --radius-sm: 4px;
   --radius-md: 6px;
   /* メモ一覧カード1件分の高さ。仮想スクロール（render/noteList.js）がこの値を読み取って
-     位置計算するため、画面幅ごとの上書き値も含めここでしか定義しない */
-  --note-card-height: 92px;
+     位置計算するため、画面幅ごとの上書き値も含めここでしか定義しない。モバイルファーストの基準値。 */
+  --note-card-height: 168px;
   /* 一覧でメモを左にスワイプしたときに現れる「削除」ボタンの幅。
      render/noteList.jsのスワイプ処理がこの値を読み取ってスナップ位置を決める */
-  --swipe-delete-width: 88px;
+  --swipe-delete-width: 104px;
+  /* 画面下部の固定要素（下部ナビ・FAB）の高さ計算用 */
+  --bottom-nav-height: 58px;
+}
+
+/* ダークモード: 端末の設定（prefers-color-scheme）に自動で追従する。
+   [data-theme]属性による明示切り替えは現状使っていないため、メディアクエリのみで判定する。 */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #1c1c1e;
+    --color-bg-subtle: #242426;
+    --color-bg-hover: #2c2c2e;
+    --color-border: #3a3a3c;
+    --color-border-strong: #48484a;
+    --color-text: #f2f2f3;
+    --color-text-muted: #b6b8bc;
+    --color-text-faint: #8e9096;
+    --color-accent: #7b84e8;
+    --color-accent-bg: #2a2c4d;
+    --color-danger: #ff6b6b;
+    --color-danger-bg: #402323;
+    --color-warning-bg: #453a1e;
+  }
+}
+
+/* アニメーションを抑えたい設定（iOSの「視差効果を減らす」等）を尊重する */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+  }
 }
 
 * {
@@ -38,16 +70,22 @@ html, body {
 
 body {
   font-family: var(--font-sans);
-  font-size: 13.5px;
+  font-size: 16px;
   line-height: 1.5;
   color: var(--color-text);
   background: var(--color-bg);
   -webkit-font-smoothing: antialiased;
 }
 
+@media (min-width: 768px) {
+  body {
+    font-size: 14px;
+  }
+}
+
 #app {
   height: 100vh;
-  height: 100dvh; /* iOS Safariのアドレスバー分の誤差を防ぐ（対応ブラウザではこちらが優先される） */
+  height: 100dvh; /* iOS Safariのアドレスバー分の誤差を防ぐ（対応ブラウザではこちらが優先される。dvh未対応ブラウザは無視して上のvhのまま） */
   display: flex;
   flex-direction: column;
   /* ホーム画面に追加してフルスクリーンで使った場合、ノッチ/ホームインジケーター部分に
@@ -67,9 +105,11 @@ button {
   color: inherit;
 }
 
+/* iOS Safariは入力欄の文字サイズが16px未満だとフォーカス時に画面を自動ズームしてしまうため、
+   PC/モバイル問わず入力系要素は常に16px以上を確保する（優先度6・14）。 */
 input, textarea, select {
   font-family: inherit;
-  font-size: inherit;
+  font-size: max(16px, 1em);
   color: inherit;
 }
 

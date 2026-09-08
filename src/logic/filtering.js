@@ -80,8 +80,23 @@
     });
   }
 
+  /** @returns {boolean} 検索条件が何も指定されていない状態か（検索画面の「スマートビューとして保存」ボタンの有効/無効判定用） */
+  function isFilterEmpty(filter) {
+    return !filter.keyword &&
+      filter.categoryIds.length === 0 &&
+      !filter.typeId &&
+      !filter.isFavorite &&
+      !filter.isPinned &&
+      !filter.unclassifiedOnly &&
+      !filter.needsOrganizingOnly &&
+      filter.archiveState === 'active' &&
+      !filter.createdRange.from && !filter.createdRange.to &&
+      !filter.updatedRange.from && !filter.updatedRange.to;
+  }
+
   App.Logic.filtering = {
     emptyFilter: emptyFilter,
-    applyFilters: applyFilters
+    applyFilters: applyFilters,
+    isFilterEmpty: isFilterEmpty
   };
 })(window.MemoApp = window.MemoApp || {});

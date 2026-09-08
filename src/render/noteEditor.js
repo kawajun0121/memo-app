@@ -17,7 +17,6 @@
   var c = App.Render.common;
 
   var AUTOSAVE_DELAY_MS = 500;
-  var NEW_TYPE_VALUE = '__new__';
 
   /** @param {string} title @param {string} content @returns {string} 入力欄に表示する結合済みテキスト */
   function joinTitleAndContent(title, content) {
@@ -26,11 +25,12 @@
     return title + '\n' + content;
   }
 
-  /** @param {string} fullText @returns {{title: string, content: string}} 1行目をタイトル、残りを本文として分割する */
+  /** @param {string} fullText @returns {{title: string, content: string}} 1行目をタイトル、残りを本文として分割する。
+   *  1行目が空白のみの場合は空文字として扱い、不自然な（空白だけの）タイトルにならないようにする。 */
   function splitTitleAndContent(fullText) {
     var newlineIndex = fullText.indexOf('\n');
-    if (newlineIndex === -1) return { title: fullText, content: '' };
-    return { title: fullText.slice(0, newlineIndex), content: fullText.slice(newlineIndex + 1) };
+    if (newlineIndex === -1) return { title: fullText.trim(), content: '' };
+    return { title: fullText.slice(0, newlineIndex).trim(), content: fullText.slice(newlineIndex + 1) };
   }
 
   /** @type {{noteId: string, getPatch: Function, isComposing: Function, flush: Function, cancel: Function, trigger: Function}|null} */
@@ -70,8 +70,11 @@
         if (pending.isComposing && pending.isComposing()) return;
         setStatus('保存中…', true);
         var savingNoteId = pending.noteId;
-        App.Store.notesStore.update(savingNoteId, pending.getPatch()).then(function () {
+        App.Store.notesStore.update(savingNoteId, pending.getPatch()).then(function (saved) {
           setStatus('保存済み', false);
+          // 編集中は#app全体の再描画をappShell.js側で遅延させているため（IME対策）、
+          // 一覧の該当カードのタイトル/プレビューだけはここで直接書き換えて即時反映する（優先度5）。
+          App.Render.noteCard.patchCardPreview(savingNoteId, saved);
         }).catch(function () {
           setStatus('保存に失敗しました（再試行します）', false);
           if (pending && pending.noteId === savingNoteId) pending.trigger();
@@ -95,64 +98,52 @@
     }).join('');
   }
 
-  function typeOptionsHtml(note) {
-    var types = App.Store.typesStore.getAll();
-    var options = '<option value="">種類なし</option>';
-    options += types.map(function (t) {
-      return '<option value="' + t.id + '"' + (note.typeId === t.id ? ' selected' : '') + '>' + c.escapeHtml(t.name) + '</option>';
-    }).join('');
-    options += '<option value="' + NEW_TYPE_VALUE + '">+ 新しい種類を追加…</option>';
-    return options;
-  }
-
-  function categoryDatalistHtml() {
-    return App.Store.categoriesStore.getAll().map(function (cat) {
-      return '<option value="' + c.escapeHtml(cat.name) + '"></option>';
-    }).join('');
-  }
-
   function flagButton(action, id, icon, label, isActive) {
-    return '<button type="button" class="flag-btn' + (isActive ? ' is-active' : '') + '" data-action="' + action + '" data-id="' + id + '">' + icon + ' ' + label + '</button>';
+    return '<button type="button" class="flag-btn' + (isActive ? ' is-active' : '') + '" data-action="' + action + '" data-id="' + id + '" aria-pressed="' + (isActive ? 'true' : 'false') + '">' + icon + ' ' + label + '</button>';
   }
 
-  /** @param {Note|null} note */
+  /** @param {Note|null} note 選択中のメモ（下書き中の新規メモの場合もある） */
   function render(note) {
     if (!note) {
-      return '<div class="note-editor note-editor--empty">メモを選択するか、上のクイック入力から新しいメモを作成してください</div>';
+      // このプレースホルダーはPCの3カラム表示でのみ見える（モバイルは常にメモを開いた状態で
+      // この画面に入るため）。一覧が空の場合の案内文はrender/noteList.jsのnote-list-empty側で扱う。
+      return '<div class="note-editor note-editor--empty">左のメモ一覧からメモを選択するか、新規作成してください</div>';
     }
+
+    if (note.deletedAt) {
+      return '' +
+        '<div class="note-editor" data-note-id="' + note.id + '">' +
+        renderTopToolbar(note) +
+        '  <textarea id="noteContentInput" class="note-content-input" readonly>' + c.escapeHtml(joinTitleAndContent(note.title, note.content)) + '</textarea>' +
+        renderTrashedActions(note) +
+        '</div>';
+    }
+
+    var typeName = note.typeId ? (App.Store.typesStore.getById(note.typeId) || {}).name : null;
 
     return '' +
       '<div class="note-editor" data-note-id="' + note.id + '">' +
-      '  <div class="note-editor-toolbar">' +
-      '    <button type="button" class="icon-btn mobile-only" data-action="setMobileViewListFromEditor" title="メモ一覧に戻る">←</button>' +
-      '    <span id="autosaveStatus" class="autosave-status">保存済み</span>' +
-      '    <div class="note-editor-toolbar-actions">' +
-      '      <button type="button" class="btn-text" data-action="openHistoryPanel" data-id="' + note.id + '">編集履歴</button>' +
-      '      <button type="button" class="btn-text" data-action="openAiSuggest" data-id="' + note.id + '">AIカテゴリ提案</button>' +
+      renderTopToolbar(note) +
+      '  <textarea id="noteContentInput" class="note-content-input" placeholder="メモを入力…（1行目がタイトルになります）">' + c.escapeHtml(joinTitleAndContent(note.title, note.content)) + '</textarea>' +
+      '  <div class="note-editor-categories">' +
+      '    <div class="chip-row">' + categoryChipsHtml(note) +
+      '      <button type="button" class="chip chip-add" data-action="openCategoryPicker" aria-label="カテゴリを追加">+ カテゴリ</button>' +
       '    </div>' +
       '  </div>' +
-      '  <textarea id="noteContentInput" class="note-content-input" placeholder="メモを入力…">' + c.escapeHtml(joinTitleAndContent(note.title, note.content)) + '</textarea>' +
-      '  <div class="note-editor-categories">' +
-      '    <div class="chip-row">' + categoryChipsHtml(note) + '</div>' +
-      '    <input type="text" list="categoryDatalist" class="category-add-input" id="categoryAddInput" placeholder="+ カテゴリを追加（Enterで確定）" />' +
-      '    <datalist id="categoryDatalist">' + categoryDatalistHtml() + '</datalist>' +
-      '  </div>' +
       '  <div class="note-editor-row">' +
-      '    <select class="type-select" data-action-change="changeNoteType" data-id="' + note.id + '">' + typeOptionsHtml(note) + '</select>' +
+      '    <button type="button" class="btn-icon note-type-button" data-action="openTypePicker" aria-label="種類を選択">' + (typeName ? '🏷 ' + c.escapeHtml(typeName) : '+ 種類を選択') + '</button>' +
+      flagButton('toggleNeedsOrganizing', note.id, '🗂', 'あとで整理', note.needsOrganizing) +
       '  </div>' +
-      (note.deletedAt ? renderTrashedActions(note) : renderFlags(note)) +
       '</div>';
   }
 
-  function renderFlags(note) {
+  function renderTopToolbar(note) {
     return '' +
-      '<div class="note-editor-flags">' +
-      flagButton('toggleFavorite', note.id, note.isFavorite ? '★' : '☆', 'お気に入り', note.isFavorite) +
-      flagButton('togglePinned', note.id, '📌', 'ピン留め', note.isPinned) +
-      flagButton('toggleNeedsOrganizing', note.id, '🗂', 'あとで整理', note.needsOrganizing) +
-      flagButton(note.isArchived ? 'unarchiveNote' : 'archiveNote', note.id, '📦', note.isArchived ? 'アーカイブ解除' : 'アーカイブ', note.isArchived) +
-      '    <button type="button" class="flag-btn flag-btn--danger" data-action="trashNote" data-id="' + note.id + '">🗑 ゴミ箱へ</button>' +
-      '</div>';
+      '  <div class="note-editor-toolbar">' +
+      '    <button type="button" class="icon-btn mobile-only" data-action="setMobileViewListFromEditor" title="メモ一覧に戻る" aria-label="メモ一覧に戻る">←</button>' +
+      '    <span id="autosaveStatus" class="autosave-status">保存済み</span>' +
+      '    <button type="button" class="icon-btn" data-action="openEditorMenu" title="その他メニュー" aria-label="その他メニュー">⋯</button>' +
+      '  </div>';
   }
 
   function renderTrashedActions(note) {
@@ -164,11 +155,38 @@
       '</div>';
   }
 
+  /** @param {string} id @returns {boolean} まだIndexedDBに保存されていない下書きかどうか */
+  function isDraftId(id) {
+    var draft = App.Store.uiStore.getState().draftNote;
+    return !!(draft && draft.id === id);
+  }
+
+  /** 下書きへの最初の入力（本文が空でなくなった瞬間）で、正式なメモとしてnotesStoreへ昇格させる。
+   *  空のまま一覧等へ戻った場合は何もしない（＝IndexedDBには一切書き込まれず、優先度4の要件を満たす）。
+   *  昇格後もメモidは下書き時点と同じものを使い続けるため（App.Db.notesRepo.createEmptyNoteへ明示的にid/
+   *  createdAtを渡す）、appShell.js側の「編集中は同じメモとみなし再描画を保留する」判定が
+   *  下書き→保存後の間で途切れず、入力中に入力欄が作り直されてフォーカスが飛ぶことがない。 */
+  function promoteDraftIfNeeded(noteId, patch) {
+    if (!isDraftId(noteId)) return;
+    if (!patch.title && !patch.content) return; // まだ何も入力されていない
+    var draft = App.Store.uiStore.getState().draftNote;
+    App.Store.notesStore.create(Object.assign({
+      id: draft.id,
+      createdAt: draft.createdAt,
+      categoryIds: draft.categoryIds,
+      typeId: draft.typeId,
+      isFavorite: draft.isFavorite,
+      isPinned: draft.isPinned,
+      needsOrganizing: draft.needsOrganizing,
+      isArchived: draft.isArchived
+    }, patch));
+    App.Store.uiStore.promoteDraftTo(draft.id);
+  }
+
   function mount(note) {
     if (!note) return;
 
     var contentInput = document.getElementById('noteContentInput');
-    var categoryAddInput = document.getElementById('categoryAddInput');
 
     function currentPatch() {
       return contentInput ? splitTitleAndContent(contentInput.value) : { title: note.title, content: note.content };
@@ -188,31 +206,20 @@
       App.Render.appShell.flushDeferredRender();
     }
 
-    if (contentInput) {
+    function handleInput() {
+      var patch = currentPatch();
+      promoteDraftIfNeeded(note.id, patch);
+      scheduleSave(note.id, currentPatch, isComposing);
+    }
+
+    if (contentInput && !note.deletedAt) {
       contentInput.addEventListener('compositionstart', function () { composing = true; });
       contentInput.addEventListener('compositionend', function () {
         composing = false;
-        scheduleSave(note.id, currentPatch, isComposing);
+        handleInput();
       });
-      contentInput.addEventListener('input', function () {
-        scheduleSave(note.id, currentPatch, isComposing);
-      });
+      contentInput.addEventListener('input', handleInput);
       contentInput.addEventListener('blur', flushDeferredRenderIfAny);
-    }
-    if (categoryAddInput) {
-      categoryAddInput.addEventListener('keydown', function (evt) {
-        if (evt.key !== 'Enter') return;
-        evt.preventDefault();
-        var name = categoryAddInput.value.trim();
-        if (!name) return;
-        var category = App.Store.categoriesStore.getOrCreate(name);
-        if (!category) return;
-        var current = App.Store.notesStore.getById(note.id);
-        if (current.categoryIds.indexOf(category.id) === -1) {
-          App.Store.notesStore.update(note.id, { categoryIds: current.categoryIds.concat([category.id]) });
-        }
-        categoryAddInput.value = '';
-      });
     }
   }
 

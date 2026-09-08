@@ -65,25 +65,28 @@
     return '' +
       '<div class="note-list-toolbar">' +
       '  <div class="note-list-title-row">' +
-      '    <button type="button" class="icon-btn mobile-only" data-action="setMobileViewNav" title="メニュー">☰</button>' +
       '    <h2 class="note-list-title">' + c.escapeHtml(ui.viewMeta.label) + '</h2>' +
       '    <span class="note-list-count">' + resultCount + '件</span>' +
+      '    <button type="button" class="btn-new-note-compact" data-action="createFullNote" title="新しいメモを作成" aria-label="新しいメモを作成">＋ 新規作成</button>' +
       '  </div>' +
       '  <div class="note-list-controls">' +
       '    <input type="search" class="search-input" id="searchInput" placeholder="検索 (Ctrl+K)" value="' + c.escapeHtml(ui.filter.keyword) + '" data-role="search-input" />' +
-      '    <select class="sort-select" data-action-change="changeSort" data-id="field">' +
+      '    <button type="button" class="btn-icon mobile-only" data-action="setMobileViewSearch" title="詳細な検索・絞り込み" aria-label="詳細な検索・絞り込み">🔍 絞り込み</button>' +
+      '    <button type="button" class="btn-icon" data-action="toggleMultiSelect" title="複数選択" aria-label="複数選択">' + (ui.multiSelectMode ? '選択終了' : '複数選択') + '</button>' +
+      (ui.multiSelectMode ? '<button type="button" class="btn-icon" data-action="selectAllVisible" title="表示中のメモをすべて選択">すべて選択</button>' : '') +
+      '    <div class="note-list-detail-controls">' +
+      '      <select class="sort-select" data-action-change="changeSort" data-id="field">' +
       sortOption('updatedAt-desc', '更新日時: 新しい順', sort) +
       sortOption('updatedAt-asc', '更新日時: 古い順', sort) +
       sortOption('createdAt-desc', '作成日時: 新しい順', sort) +
       sortOption('createdAt-asc', '作成日時: 古い順', sort) +
       sortOption('title-asc', 'タイトル: 昇順', sort) +
       sortOption('title-desc', 'タイトル: 降順', sort) +
-      '    </select>' +
-      '    <label class="toolbar-checkbox" title="ピン留めしたメモを常に先頭に表示"><input type="checkbox" data-action-change="togglePinnedFirst" ' + (sort.pinnedFirst ? 'checked' : '') + ' /> ピン留め優先</label>' +
+      '      </select>' +
+      '      <label class="toolbar-checkbox" title="ピン留めしたメモを常に先頭に表示"><input type="checkbox" data-action-change="togglePinnedFirst" ' + (sort.pinnedFirst ? 'checked' : '') + ' /> ピン留め優先</label>' +
       (ui.viewMeta.kind !== 'trash' ? '<label class="toolbar-checkbox" title="アーカイブ済みのメモも表示する"><input type="checkbox" data-action-change="toggleIncludeArchived" ' + (ui.includeArchivedInSearch ? 'checked' : '') + ' /> アーカイブも含める</label>' : '') +
-      '    <button type="button" class="btn-icon" data-action="toggleMultiSelect" title="複数選択">' + (ui.multiSelectMode ? '選択終了' : '選択') + '</button>' +
-      (ui.multiSelectMode ? '<button type="button" class="btn-icon" data-action="selectAllVisible" title="表示中のメモをすべて選択">すべて選択</button>' : '') +
-      (ui.viewMeta.kind !== 'trash' ? '<button type="button" class="btn-icon" data-action="openSaveViewModal" title="この条件をスマートビューとして保存">条件を保存</button>' : '') +
+      (ui.viewMeta.kind !== 'trash' ? '<button type="button" class="btn-icon" data-action="openSaveViewModal" title="この検索条件をスマートビューとして保存">この検索条件をスマートビューとして保存</button>' : '') +
+      '    </div>' +
       '  </div>' +
       '</div>';
   }
@@ -114,8 +117,12 @@
     var totalHeight = notes.length * rowHeight;
     var offsetTop = range.start * rowHeight;
 
-    var emptyState = notes.length === 0 ?
-      '<div class="note-list-empty">該当するメモがありません</div>' : '';
+    var emptyState = '';
+    if (notes.length === 0) {
+      emptyState = (ctx.totalScopeCount === 0)
+        ? '<div class="note-list-empty">メモがまだありません。右下の＋ボタンから最初のメモを作成できます。</div>'
+        : '<div class="note-list-empty">条件に一致するメモがありません。検索条件を変更またはリセットしてください。</div>';
+    }
 
     return '' +
       '<div class="note-list">' +

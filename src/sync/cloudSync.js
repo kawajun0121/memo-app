@@ -55,6 +55,8 @@
     if (!user) return;
     var uid = user.uid;
 
+    if (App.Store.syncStatusStore) App.Store.syncStatusStore.setStatus('syncing');
+
     var pendingFirst = COLLECTIONS.length;
     var firstDone = false;
 
@@ -90,17 +92,24 @@
           gotFirstSnapshot = true;
           handleFirstSyncTick();
         }
+        if (App.Store.syncStatusStore) App.Store.syncStatusStore.setStatus('synced');
       }, function (err) {
         console.warn('同期エラー(' + col.name + ')', err);
         if (!gotFirstSnapshot) {
           gotFirstSnapshot = true;
           handleFirstSyncTick();
         }
+        if (App.Store.syncStatusStore) App.Store.syncStatusStore.setStatus('error');
       });
 
       var unsubLocal = store.subscribe(function () {
         if (applyingRemote) return;
-        docRef.set({ items: store.getAll() });
+        if (App.Store.syncStatusStore) App.Store.syncStatusStore.setStatus('syncing');
+        docRef.set({ items: store.getAll() }).then(function () {
+          if (App.Store.syncStatusStore) App.Store.syncStatusStore.setStatus('synced');
+        }).catch(function () {
+          if (App.Store.syncStatusStore) App.Store.syncStatusStore.setStatus('error');
+        });
       });
 
       unsubscribeFns.push(unsubSnapshot, unsubLocal);
@@ -112,6 +121,7 @@
       try { fn(); } catch (e) { /* 無視 */ }
     });
     unsubscribeFns = [];
+    if (App.Store.syncStatusStore) App.Store.syncStatusStore.setStatus('idle');
   }
 
   App.Sync.cloudSync = { start: start, stop: stop };

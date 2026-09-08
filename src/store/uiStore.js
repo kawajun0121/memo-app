@@ -18,15 +18,28 @@
     selectedNoteId: null,
     multiSelectMode: false,
     selectedIds: [],
-    panels: { historyOpen: false, categoryManagerOpen: false, settingsOpen: false, aiSuggestOpen: false, saveViewModalOpen: false, editSavedViewId: null },
+    panels: {
+      historyOpen: false, categoryManagerOpen: false, settingsOpen: false, aiSuggestOpen: false,
+      saveViewModalOpen: false, editSavedViewId: null,
+      categoryPickerOpen: false, typePickerOpen: false, editorMenuOpen: false,
+      bulkCategoryAddOpen: false, bulkCategoryRemoveOpen: false, bulkTypeChangeOpen: false
+    },
     includeArchivedInSearch: false,
-    // スマホ幅（iPhone等）でのみ使う画面切り替え。'nav'=ナビゲーション / 'list'=メモ一覧 / 'editor'=メモ本文。
+    // スマホ幅（iPhone等）でのみ使う画面切り替え。下部ナビゲーションの4タブに対応する。
+    // 'organize'=整理（カテゴリ/種類/基本メニュー） / 'list'=メモ一覧 / 'editor'=メモ本文 / 'search'=検索・絞り込み。
+    // 「設定」はpanels.settingsOpenの既存モーダル機構を流用し、モバイル幅ではCSSでフルスクリーン表示にする。
     // PC幅では3カラム同時表示のためCSS側でこの値は無視される。
     mobileView: 'list',
     // 一覧でメモを左にスワイプした際、裏の「削除」ボタンが見えている状態のメモID（1件のみ）。
     // iPhone純正メモアプリと同様、スワイプで開いた後に削除ボタン自体を別途タップしたときのみ
     // 実際に削除する（render/noteList.jsのスワイプ検出とセット）。
-    revealedDeleteNoteId: null
+    revealedDeleteNoteId: null,
+    // 「＋新規作成」直後の下書き状態のメモ（まだIndexedDBには保存されていない）。
+    // 最初の入力で notesStore.create() により正式なメモへ昇格し、ここはnullに戻る。
+    // 何も入力されないまま別のメモ/画面に切り替わった場合は破棄される（main.jsのcreateFullNote参照）。
+    draftNote: null,
+    // 画面下部に一時表示する軽いフィードバック（例: ゴミ箱移動の「元に戻す」）。
+    toast: null
   });
 
   /**
@@ -44,7 +57,8 @@
       selectedIds: [],
       includeArchivedInSearch: false,
       mobileView: 'list',
-      revealedDeleteNoteId: null
+      revealedDeleteNoteId: null,
+      draftNote: null // 空のまま放置された下書きは、別ビューへ移った時点で破棄する
     });
   }
 
@@ -119,6 +133,30 @@
     });
   }
 
+  /** 検索画面用: フィルタの1項目だけを差し替える（他の条件・viewMetaはそのまま維持し、複合条件にする）。
+   *  カテゴリ/種類ナビのタップ（selectCategory等）とは異なり、単体の条件変更として扱う。 */
+  function patchFilter(patch) {
+    store.setState(function (s) {
+      return {
+        filter: Object.assign({}, s.filter, patch),
+        viewMeta: { kind: 'search', id: null, label: '検索結果' }
+      };
+    });
+  }
+
+  function setFilterCategoryIds(categoryIds) { patchFilter({ categoryIds: categoryIds }); }
+  function setFilterTypeId(typeId) { patchFilter({ typeId: typeId }); }
+  function setFilterFavorite(value) { patchFilter({ isFavorite: value ? true : null }); }
+  function setFilterNeedsOrganizing(value) { patchFilter({ needsOrganizingOnly: value ? true : null }); }
+
+  function resetFilter() {
+    store.setState({
+      filter: App.Logic.filtering.emptyFilter(),
+      includeArchivedInSearch: false,
+      viewMeta: { kind: 'search', id: null, label: '検索結果' }
+    });
+  }
+
   function setSort(sort) {
     App.Db.settingsRepo.setSortCondition(sort);
     App.Db.settingsRepo.setPinnedFirst(sort.pinnedFirst);
@@ -126,12 +164,47 @@
   }
 
   function selectNote(noteId) {
-    store.setState({ selectedNoteId: noteId, mobileView: noteId ? 'editor' : 'list', revealedDeleteNoteId: null });
+    store.setState({
+      selectedNoteId: noteId,
+      mobileView: noteId ? 'editor' : 'list',
+      revealedDeleteNoteId: null,
+      draftNote: null // 別のメモを開く/一覧に戻る際、空のまま残っている下書きは破棄する
+    });
   }
 
-  /** @param {'nav'|'list'|'editor'} view スマホ幅での画面切り替え（PCでは無視される） */
+  /** @param {'organize'|'list'|'editor'|'search'} view スマホ幅での画面切り替え（PCでは無視される） */
   function setMobileView(view) {
-    store.setState({ mobileView: view });
+    store.setState(function (s) {
+      // 下書きが空のまま一覧・検索・整理タブへ移動する場合は破棄する（編集画面へはselectNote経由のみ遷移するため対象外）
+      var shouldDiscardDraft = view !== 'editor' && s.draftNote && !s.draftNote.title && !s.draftNote.content;
+      return { mobileView: view, draftNote: shouldDiscardDraft ? null : s.draftNote };
+    });
+  }
+
+  /** @param {Note} draftNote 「＋新規作成」直後、まだ保存されていない下書き */
+  function setDraftNote(draftNote) {
+    store.setState({ draftNote: draftNote, selectedNoteId: null, mobileView: 'editor', revealedDeleteNoteId: null });
+  }
+
+  /** 下書きが最初の入力で正式なメモへ昇格した後に呼ぶ */
+  function promoteDraftTo(noteId) {
+    store.setState({ draftNote: null, selectedNoteId: noteId });
+  }
+
+  /** 下書き（まだ保存されていないメモ）のカテゴリ/種類などを、本文以外の理由で書き換える場合に使う */
+  function updateDraftNote(patch) {
+    store.setState(function (s) {
+      if (!s.draftNote) return {};
+      return { draftNote: Object.assign({}, s.draftNote, patch) };
+    });
+  }
+
+  function showToast(toast) {
+    store.setState({ toast: toast });
+  }
+
+  function clearToast() {
+    store.setState({ toast: null });
   }
 
   /** @param {string} noteId 一覧でのメモのスワイプにより削除ボタンを表示する */
@@ -195,10 +268,18 @@
     selectSavedView: selectSavedView,
     setKeyword: setKeyword,
     toggleCategoryFilter: toggleCategoryFilter,
+    setFilterCategoryIds: setFilterCategoryIds,
+    setFilterTypeId: setFilterTypeId,
+    setFilterFavorite: setFilterFavorite,
+    setFilterNeedsOrganizing: setFilterNeedsOrganizing,
+    resetFilter: resetFilter,
     setIncludeArchivedInSearch: setIncludeArchivedInSearch,
     setSort: setSort,
     selectNote: selectNote,
     setMobileView: setMobileView,
+    setDraftNote: setDraftNote,
+    promoteDraftTo: promoteDraftTo,
+    updateDraftNote: updateDraftNote,
     revealDeleteForNote: revealDeleteForNote,
     hideRevealedDelete: hideRevealedDelete,
     enterMultiSelect: enterMultiSelect,
@@ -207,6 +288,8 @@
     selectAllIds: selectAllIds,
     clearSelection: clearSelection,
     openPanel: openPanel,
-    closePanel: closePanel
+    closePanel: closePanel,
+    showToast: showToast,
+    clearToast: clearToast
   };
 })(window.MemoApp = window.MemoApp || {});

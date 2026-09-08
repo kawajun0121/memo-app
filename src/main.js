@@ -29,6 +29,7 @@
     App.Store.uiStore.subscribe(rerender);
     App.Store.historyStore.subscribe(rerender);
     App.Store.aiSuggestStore.subscribe(rerender);
+    if (App.Store.syncStatusStore) App.Store.syncStatusStore.subscribe(rerender);
 
     App.Render.appShell.renderAll();
 
@@ -47,13 +48,24 @@
       bootMainApp();
       return;
     }
-    App.Sync.onSkip = bootMainApp;
+    App.Sync.onSkip = function () {
+      App.Db.settingsRepo.setSyncSkipped(true);
+      bootMainApp();
+    };
     App.Sync.auth.onAuthStateChanged(function (user) {
       if (user) {
+        App.Db.settingsRepo.setSyncSkipped(false); // ログイン済みなら以後は同期を試みる
         App.Sync.cloudSync.start(bootMainApp);
       } else {
         App.Sync.cloudSync.stop();
-        if (!mainAppInitialized) App.Sync.authUI.render();
+        if (!mainAppInitialized) {
+          // 前回「同期せずこの端末だけで使う」を選んでいれば、毎回ログイン画面を出さず直接アプリを開く
+          if (App.Db.settingsRepo.getSyncSkipped()) {
+            bootMainApp();
+          } else {
+            App.Sync.authUI.render();
+          }
+        }
       }
     });
   }
@@ -125,13 +137,13 @@
 
   // ---------- パネル開閉 ----------
 
-  App.Actions['openSettings'] = function () { App.Store.uiStore.openPanel('settingsOpen'); };
   App.Actions['closeSettings'] = function () { App.Store.uiStore.closePanel('settingsOpen'); };
 
-  App.Actions['openCategoryManager'] = function () { App.Store.uiStore.openPanel('categoryManagerOpen'); };
   App.Actions['closeCategoryManager'] = function () { App.Store.uiStore.closePanel('categoryManagerOpen'); };
 
   App.Actions['openHistoryPanel'] = function (d) {
+    App.Render.noteEditor.flushPending();
+    App.Store.uiStore.closePanel('editorMenuOpen');
     App.Store.uiStore.openPanel('historyOpen');
     App.Store.historyStore.loadForNote(d.id);
   };
@@ -141,8 +153,10 @@
   };
 
   App.Actions['openAiSuggest'] = function (d) {
+    App.Render.noteEditor.flushPending();
     var note = App.Store.notesStore.getById(d.id);
     if (!note) return;
+    App.Store.uiStore.closePanel('editorMenuOpen');
     App.Store.uiStore.openPanel('aiSuggestOpen');
     App.Store.aiSuggestStore.requestFor(note);
   };
@@ -152,10 +166,87 @@
   };
 
   App.Actions['openSaveViewModal'] = function () {
+    App.Render.noteEditor.flushPending();
     App.Store.uiStore.openPanel('saveViewModalOpen', { editSavedViewId: null });
   };
   App.Actions['closeSaveViewModal'] = function () {
     App.Store.uiStore.closePanel('saveViewModalOpen');
+  };
+
+  App.Actions['openCategoryManager'] = function () { App.Render.noteEditor.flushPending(); App.Store.uiStore.openPanel('categoryManagerOpen'); };
+
+  App.Actions['openSettings'] = function () { App.Render.noteEditor.flushPending(); App.Store.uiStore.openPanel('settingsOpen'); };
+
+  // ---------- カテゴリ・種類ピッカー（エディタ用。標準のprompt()は使わない） ----------
+
+  /** 現在編集中のメモ（下書き含む）を1件だけ返す */
+  function currentEditingNote() {
+    var ui = App.Store.uiStore.getState();
+    if (ui.draftNote) return ui.draftNote;
+    if (ui.selectedNoteId) return App.Store.notesStore.getById(ui.selectedNoteId);
+    return null;
+  }
+
+  /** 下書き/既存メモのどちらでも同じ書き方で更新できるようにする */
+  function updateCurrentNote(patch) {
+    var ui = App.Store.uiStore.getState();
+    if (ui.draftNote) {
+      App.Store.uiStore.updateDraftNote(patch);
+      return;
+    }
+    if (ui.selectedNoteId) App.Store.notesStore.update(ui.selectedNoteId, patch);
+  }
+
+  App.Actions['openCategoryPicker'] = function () {
+    App.Render.noteEditor.flushPending();
+    App.Store.uiStore.openPanel('categoryPickerOpen');
+  };
+  App.Actions['closeCategoryPicker'] = function () { App.Store.uiStore.closePanel('categoryPickerOpen'); };
+
+  App.Actions['openTypePicker'] = function () {
+    App.Render.noteEditor.flushPending();
+    App.Store.uiStore.openPanel('typePickerOpen');
+  };
+  App.Actions['closeTypePicker'] = function () { App.Store.uiStore.closePanel('typePickerOpen'); };
+
+  App.Actions['openEditorMenu'] = function () {
+    App.Render.noteEditor.flushPending();
+    App.Store.uiStore.openPanel('editorMenuOpen');
+  };
+  App.Actions['closeEditorMenu'] = function () { App.Store.uiStore.closePanel('editorMenuOpen'); };
+
+  App.Actions['toggleCategoryOnNote'] = function (d) {
+    var note = currentEditingNote();
+    if (!note) return;
+    var has = note.categoryIds.indexOf(d.id) !== -1;
+    updateCurrentNote({ categoryIds: has ? note.categoryIds.filter(function (id) { return id !== d.id; }) : note.categoryIds.concat([d.id]) });
+  };
+
+  App.Actions['addCategoryOnNote'] = function () {
+    var input = document.getElementById('categoryPickerAddInput');
+    if (!input || !input.value.trim()) return;
+    var category = App.Store.categoriesStore.getOrCreate(input.value);
+    var note = currentEditingNote();
+    if (category && note && note.categoryIds.indexOf(category.id) === -1) {
+      updateCurrentNote({ categoryIds: note.categoryIds.concat([category.id]) });
+    }
+    input.value = '';
+  };
+
+  App.Actions['selectTypeOnNote'] = function (d) {
+    var note = currentEditingNote();
+    if (!note) return;
+    updateCurrentNote({ typeId: note.typeId === d.id ? null : d.id });
+    App.Store.uiStore.closePanel('typePickerOpen');
+  };
+
+  App.Actions['addTypeOnNote'] = function () {
+    var input = document.getElementById('typePickerAddInput');
+    if (!input || !input.value.trim()) return;
+    var type = App.Store.typesStore.getOrCreate(input.value);
+    if (type) updateCurrentNote({ typeId: type.id });
+    input.value = '';
+    App.Store.uiStore.closePanel('typePickerOpen');
   };
 
   // ---------- メモ単体操作 ----------
@@ -170,11 +261,13 @@
     App.Store.uiStore.selectNote(d.id);
   };
 
-  // 空のメモを作成し、そのままタイトル（1行目）・本文・カテゴリ・種類などを入力できるよう
-  // 編集画面を開く（新規作成ボタン・Ctrl+Nの両方から呼ばれる）
+  // 空メモを一覧に残さないため、「＋新規作成」時点ではまだIndexedDBに保存しない下書き状態にする。
+  // 最初の入力（本文が空でなくなった瞬間）にnoteEditor.js側でnotesStore.create()へ昇格させる。
+  // 何も入力せず一覧・検索・整理タブへ戻った場合は、uiStore側の自動破棄ロジックによりそのまま消える
+  // （新規作成ボタン・Ctrl+Nの両方から呼ばれる）。
   App.Actions['createFullNote'] = function () {
-    var note = App.Store.notesStore.create({});
-    App.Store.uiStore.selectNote(note.id);
+    var draft = App.Db.notesRepo.createEmptyNote({});
+    App.Store.uiStore.setDraftNote(draft);
     setTimeout(function () {
       var contentInput = document.getElementById('noteContentInput');
       if (contentInput) contentInput.focus();
@@ -190,16 +283,44 @@
     App.Store.notesStore.softDelete(d.id);
     App.Store.uiStore.hideRevealedDelete();
     if (App.Store.uiStore.getState().selectedNoteId === d.id) App.Store.uiStore.selectNote(null);
+    showUndoToast('ゴミ箱に移動しました', [d.id]);
+  };
+
+  // ---------- 軽いフィードバック（トースト） ----------
+  // ゴミ箱移動直後など、一定時間だけ「元に戻す」を出す。誤操作防止のため（優先度16）。
+  var TOAST_DURATION_MS = 6000;
+  var toastTimer = null;
+
+  function showUndoToast(message, restoreIds) {
+    if (toastTimer) clearTimeout(toastTimer);
+    App.Store.uiStore.showToast({ message: message, restoreIds: restoreIds });
+    toastTimer = setTimeout(function () { App.Store.uiStore.clearToast(); }, TOAST_DURATION_MS);
+  }
+
+  App.Actions['undoToast'] = function () {
+    var toast = App.Store.uiStore.getState().toast;
+    if (toastTimer) clearTimeout(toastTimer);
+    App.Store.uiStore.clearToast();
+    if (toast && toast.restoreIds) App.Store.notesStore.bulkRestore(toast.restoreIds);
+  };
+
+  App.Actions['dismissToast'] = function () {
+    if (toastTimer) clearTimeout(toastTimer);
+    App.Store.uiStore.clearToast();
   };
 
   // ---------- スマホ幅でのナビゲーション ----------
 
-  App.Actions['setMobileViewNav'] = function () {
-    App.Store.uiStore.setMobileView('nav');
+  App.Actions['setMobileViewOrganize'] = function () {
+    App.Store.uiStore.setMobileView('organize');
   };
 
   App.Actions['setMobileViewList'] = function () {
     App.Store.uiStore.setMobileView('list');
+  };
+
+  App.Actions['setMobileViewSearch'] = function () {
+    App.Store.uiStore.setMobileView('search');
   };
 
   App.Actions['setMobileViewListFromEditor'] = function () {
@@ -207,12 +328,16 @@
     App.Store.uiStore.setMobileView('list');
   };
 
+  // その他メニュー（editorMenuOpen）から呼ばれる操作は、選んだ時点でメニュー自体を閉じる
+  // （開いていなければclosePanelは何もしないため、他の呼び出し元にも影響しない）。
   App.Actions['toggleFavorite'] = function (d) {
+    App.Store.uiStore.closePanel('editorMenuOpen');
     var note = App.Store.notesStore.getById(d.id);
     if (note) App.Store.notesStore.update(d.id, { isFavorite: !note.isFavorite });
   };
 
   App.Actions['togglePinned'] = function (d) {
+    App.Store.uiStore.closePanel('editorMenuOpen');
     var note = App.Store.notesStore.getById(d.id);
     if (note) App.Store.notesStore.update(d.id, { isPinned: !note.isPinned });
   };
@@ -222,12 +347,14 @@
     if (note) App.Store.notesStore.update(d.id, { needsOrganizing: !note.needsOrganizing });
   };
 
-  App.Actions['archiveNote'] = function (d) { App.Store.notesStore.update(d.id, { isArchived: true }); };
-  App.Actions['unarchiveNote'] = function (d) { App.Store.notesStore.update(d.id, { isArchived: false }); };
+  App.Actions['archiveNote'] = function (d) { App.Store.uiStore.closePanel('editorMenuOpen'); App.Store.notesStore.update(d.id, { isArchived: true }); };
+  App.Actions['unarchiveNote'] = function (d) { App.Store.uiStore.closePanel('editorMenuOpen'); App.Store.notesStore.update(d.id, { isArchived: false }); };
 
   App.Actions['trashNote'] = function (d) {
+    App.Store.uiStore.closePanel('editorMenuOpen');
     App.Store.notesStore.softDelete(d.id);
     if (App.Store.uiStore.getState().selectedNoteId === d.id) App.Store.uiStore.selectNote(null);
+    showUndoToast('ゴミ箱に移動しました', [d.id]);
   };
 
   App.Actions['restoreNote'] = function (d) {
@@ -247,18 +374,6 @@
     var note = App.Store.notesStore.getById(noteId);
     if (!note) return;
     App.Store.notesStore.update(noteId, { categoryIds: note.categoryIds.filter(function (id) { return id !== d.id; }) });
-  };
-
-  App.Actions['changeNoteType'] = function (d) {
-    var value = d.value;
-    if (value === '__new__') {
-      var name = window.prompt('新しい種類の名前を入力してください');
-      if (!name || !name.trim()) return;
-      var type = App.Store.typesStore.getOrCreate(name);
-      if (type) App.Store.notesStore.update(d.id, { typeId: type.id });
-      return;
-    }
-    App.Store.notesStore.update(d.id, { typeId: value || null });
   };
 
   App.Actions['restoreHistory'] = function (d) {
@@ -293,6 +408,28 @@
     App.Store.uiStore.setIncludeArchivedInSearch(el.checked);
   };
 
+  // ---------- 検索・絞り込み画面（スマホ幅の独立画面） ----------
+
+  App.Actions['searchToggleCategory'] = function (d) {
+    App.Store.uiStore.toggleCategoryFilter(d.id);
+  };
+
+  App.Actions['searchToggleFavorite'] = function (d, evt, el) {
+    App.Store.uiStore.setFilterFavorite(el.checked);
+  };
+
+  App.Actions['searchToggleNeedsOrganizing'] = function (d, evt, el) {
+    App.Store.uiStore.setFilterNeedsOrganizing(el.checked);
+  };
+
+  App.Actions['searchSelectType'] = function (d, evt, el) {
+    App.Store.uiStore.setFilterTypeId(el.value || null);
+  };
+
+  App.Actions['searchResetFilter'] = function () {
+    App.Store.uiStore.resetFilter();
+  };
+
   App.Actions['toggleMultiSelect'] = function () {
     var ui = App.Store.uiStore.getState();
     if (ui.multiSelectMode) App.Store.uiStore.exitMultiSelect();
@@ -317,7 +454,7 @@
     App.Store.uiStore.setKeyword(value);
   }, 150);
   document.addEventListener('input', function (evt) {
-    if (evt.target && evt.target.id === 'searchInput') {
+    if (evt.target && (evt.target.id === 'searchInput' || evt.target.id === 'searchScreenKeyword')) {
       searchDebounced(evt.target.value);
     }
   });
@@ -361,13 +498,17 @@
   };
 
   App.Actions['bulkArchive'] = function () {
+    var count = selectedIds().length;
     App.Store.notesStore.bulkUpdate(selectedIds(), { isArchived: true });
     App.Store.uiStore.exitMultiSelect();
+    showUndoToast(count + '件をアーカイブしました', []);
   };
 
   App.Actions['bulkUnarchive'] = function () {
+    var count = selectedIds().length;
     App.Store.notesStore.bulkUpdate(selectedIds(), { isArchived: false });
     App.Store.uiStore.exitMultiSelect();
+    showUndoToast(count + '件のアーカイブを解除しました', []);
   };
 
   App.Actions['bulkTrash'] = function () {
@@ -375,6 +516,7 @@
     if (!window.confirm(ids.length + '件のメモをゴミ箱へ移動します。よろしいですか？')) return;
     App.Store.notesStore.bulkSoftDelete(ids);
     App.Store.uiStore.exitMultiSelect();
+    showUndoToast(ids.length + '件をゴミ箱に移動しました', ids);
   };
 
   App.Actions['bulkRestore'] = function () {
@@ -389,39 +531,51 @@
     App.Store.uiStore.exitMultiSelect();
   };
 
-  App.Actions['bulkOpenCategoryAdd'] = function () {
-    var name = window.prompt('追加するカテゴリ名を入力してください（既存のカテゴリ名でなければ新規作成されます）');
-    if (!name || !name.trim()) return;
-    var category = App.Store.categoriesStore.getOrCreate(name);
+  App.Actions['bulkOpenCategoryAdd'] = function () { App.Store.uiStore.openPanel('bulkCategoryAddOpen'); };
+  App.Actions['closeBulkCategoryAdd'] = function () { App.Store.uiStore.closePanel('bulkCategoryAddOpen'); };
+  App.Actions['bulkAddCategory'] = function (d) {
+    var category = App.Store.categoriesStore.getById(d.id);
     if (!category) return;
     App.Store.notesStore.bulkUpdate(selectedIds(), function (note) {
       if (note.categoryIds.indexOf(category.id) !== -1) return {};
       return { categoryIds: note.categoryIds.concat([category.id]) };
     });
+    App.Store.uiStore.closePanel('bulkCategoryAddOpen');
+    App.Store.uiStore.showToast({ message: selectedIds().length + '件のメモに「' + category.name + '」を追加しました' });
+  };
+  App.Actions['bulkCreateAndAddCategory'] = function () {
+    var input = document.getElementById('bulkCategoryAddInput');
+    if (!input || !input.value.trim()) return;
+    var category = App.Store.categoriesStore.getOrCreate(input.value);
+    if (!category) return;
+    App.Actions['bulkAddCategory']({ id: category.id });
   };
 
-  App.Actions['bulkOpenCategoryRemove'] = function () {
-    var name = window.prompt('削除するカテゴリ名を入力してください');
-    if (!name || !name.trim()) return;
-    var category = App.Store.categoriesStore.findByName(name);
-    if (!category) { window.alert('そのカテゴリは見つかりませんでした'); return; }
+  App.Actions['bulkOpenCategoryRemove'] = function () { App.Store.uiStore.openPanel('bulkCategoryRemoveOpen'); };
+  App.Actions['closeBulkCategoryRemove'] = function () { App.Store.uiStore.closePanel('bulkCategoryRemoveOpen'); };
+  App.Actions['bulkRemoveCategory'] = function (d) {
+    var category = App.Store.categoriesStore.getById(d.id);
+    if (!category) return;
     App.Store.notesStore.bulkUpdate(selectedIds(), function (note) {
       if (note.categoryIds.indexOf(category.id) === -1) return {};
       return { categoryIds: note.categoryIds.filter(function (id) { return id !== category.id; }) };
     });
+    App.Store.uiStore.closePanel('bulkCategoryRemoveOpen');
+    App.Store.uiStore.showToast({ message: selectedIds().length + '件のメモから「' + category.name + '」を削除しました' });
   };
 
-  App.Actions['bulkOpenTypeChange'] = function () {
-    var name = window.prompt('設定する種類名を入力してください（空欄でクリアします）');
-    if (name === null) return;
-    var trimmed = name.trim();
-    if (!trimmed) {
-      App.Store.notesStore.bulkUpdate(selectedIds(), { typeId: null });
-      return;
-    }
-    var type = App.Store.typesStore.getOrCreate(trimmed);
+  App.Actions['bulkOpenTypeChange'] = function () { App.Store.uiStore.openPanel('bulkTypeChangeOpen'); };
+  App.Actions['closeBulkTypeChange'] = function () { App.Store.uiStore.closePanel('bulkTypeChangeOpen'); };
+  App.Actions['bulkSetType'] = function (d) {
+    App.Store.notesStore.bulkUpdate(selectedIds(), { typeId: d.id || null });
+    App.Store.uiStore.closePanel('bulkTypeChangeOpen');
+  };
+  App.Actions['bulkCreateAndSetType'] = function () {
+    var input = document.getElementById('bulkTypeChangeInput');
+    if (!input || !input.value.trim()) return;
+    var type = App.Store.typesStore.getOrCreate(input.value);
     if (!type) return;
-    App.Store.notesStore.bulkUpdate(selectedIds(), { typeId: type.id });
+    App.Actions['bulkSetType']({ id: type.id });
   };
 
   // ---------- カテゴリ管理 ----------

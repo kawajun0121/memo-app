@@ -10,7 +10,8 @@
   var KEYS = {
     anthropicApiKey: 'memoApp.anthropicApiKey',
     pinnedFirst: 'memoApp.pinnedFirst',
-    sortCondition: 'memoApp.sortCondition'
+    sortCondition: 'memoApp.sortCondition',
+    syncSkipped: 'memoApp.syncSkipped'
   };
 
   function getAnthropicApiKey() {
@@ -50,12 +51,24 @@
     localStorage.setItem(KEYS.sortCondition, JSON.stringify(cond));
   }
 
+  /** @returns {boolean} 「同期せずこの端末だけで使う」を選択済みかどうか（次回起動時ログイン画面を出さないため） */
+  function getSyncSkipped() {
+    return localStorage.getItem(KEYS.syncSkipped) === 'true';
+  }
+
+  function setSyncSkipped(value) {
+    if (value) localStorage.setItem(KEYS.syncSkipped, 'true');
+    else localStorage.removeItem(KEYS.syncSkipped);
+  }
+
   App.Db.settingsRepo = {
     getAnthropicApiKey: getAnthropicApiKey,
     setAnthropicApiKey: setAnthropicApiKey,
     getPinnedFirst: getPinnedFirst,
     setPinnedFirst: setPinnedFirst,
     getSortCondition: getSortCondition,
-    setSortCondition: setSortCondition
+    setSortCondition: setSortCondition,
+    getSyncSkipped: getSyncSkipped,
+    setSyncSkipped: setSyncSkipped
   };
 })(window.MemoApp = window.MemoApp || {});
