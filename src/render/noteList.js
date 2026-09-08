@@ -85,7 +85,7 @@
       '      </select>' +
       '      <label class="toolbar-checkbox" title="ピン留めしたメモを常に先頭に表示"><input type="checkbox" data-action-change="togglePinnedFirst" ' + (sort.pinnedFirst ? 'checked' : '') + ' /> ピン留め優先</label>' +
       (ui.viewMeta.kind !== 'trash' ? '<label class="toolbar-checkbox" title="アーカイブ済みのメモも表示する"><input type="checkbox" data-action-change="toggleIncludeArchived" ' + (ui.includeArchivedInSearch ? 'checked' : '') + ' /> アーカイブも含める</label>' : '') +
-      (ui.viewMeta.kind !== 'trash' ? '<button type="button" class="btn-icon" data-action="openSaveViewModal" title="この検索条件をスマートビューとして保存">この検索条件をスマートビューとして保存</button>' : '') +
+      (ui.viewMeta.kind !== 'trash' ? '<button type="button" class="btn-icon" data-action="openSaveViewModal" title="この検索条件をスマートビューとして保存" ' + (App.Logic.filtering.isFilterEmpty(ui.filter) ? 'disabled' : '') + '>この検索条件をスマートビューとして保存</button>' : '') +
       '    </div>' +
       '  </div>' +
       '</div>';
