@@ -15,7 +15,7 @@
   var AUTOSAVE_DELAY_MS = 500;
   var NEW_TYPE_VALUE = '__new__';
 
-  /** @type {{noteId: string, flush: Function, cancel: Function}|null} */
+  /** @type {{noteId: string, getPatch: Function, isComposing: Function, flush: Function, cancel: Function, trigger: Function}|null} */
   var pending = null;
 
   function flushPending() {
@@ -33,6 +33,15 @@
    * @param {string} noteId
    * @param {() => Partial<Note>} getPatch
    * @param {() => boolean} isComposing 日本語入力などのIME変換中かどうか
+   *
+   * 【重要】同じメモを編集し続けている間に別の理由（カテゴリ変更・スマホでの画面遷移からの
+   * 復帰など）で編集画面が再描画されると、title/content要素とgetPatch/isComposingのクロージャは
+   * すべて新しく作り直される。もし保留中のデバウンス（pending）が「作成した時点」のgetPatchを
+   * 握ったままだと、それは作り直される前の（=すでにDOMから外れた）要素を読み続けてしまい、
+   * 再描画後にユーザーが入力した内容が保存されずに消える不具合になる。これを防ぐため、
+   * pending.getPatch/isComposingは毎回のscheduleSave呼び出しで必ず最新のものに更新し、
+   * 実際に保存を実行する関数もpending.getPatch()のように間接的に参照する
+   * （生成時のgetPatchを直接クロージャに固定しない）。
    */
   function scheduleSave(noteId, getPatch, isComposing) {
     if (pending && pending.noteId !== noteId) {
@@ -40,19 +49,22 @@
     }
     if (!pending || pending.noteId !== noteId) {
       var debounced = App.Logic.debounce(function () {
-        // IME変換中に保存すると、直後の再描画でinput/textareaのDOM要素が作り直され、
-        // 変換中の文字が消えたり表示が乱れたりする不具合が起きるため、変換が終わるまで待つ。
-        // compositionendのタイミングで改めてscheduleSave()が呼ばれるため、そこで再度保存される。
-        if (isComposing && isComposing()) return;
+        if (pending.isComposing && pending.isComposing()) return;
         setStatus('保存中…', true);
-        App.Store.notesStore.update(noteId, getPatch()).then(function () {
+        var savingNoteId = pending.noteId;
+        App.Store.notesStore.update(savingNoteId, pending.getPatch()).then(function () {
           setStatus('保存済み', false);
         }).catch(function () {
           setStatus('保存に失敗しました（再試行します）', false);
-          scheduleSave(noteId, getPatch, isComposing);
+          if (pending && pending.noteId === savingNoteId) pending.trigger();
         });
       }, AUTOSAVE_DELAY_MS);
-      pending = { noteId: noteId, flush: debounced.flush, cancel: debounced.cancel, trigger: debounced };
+      pending = { noteId: noteId, getPatch: getPatch, isComposing: isComposing, flush: debounced.flush, cancel: debounced.cancel, trigger: debounced };
+    } else {
+      // 同じメモを引き続き編集中。再描画で入力欄が作り直されていても、
+      // 常に最新のgetPatch/isComposingを参照するよう更新しておく。
+      pending.getPatch = getPatch;
+      pending.isComposing = isComposing;
     }
     setStatus('編集中…', false);
     pending.trigger();
