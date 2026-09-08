@@ -3,6 +3,10 @@
        入力後300〜800msの無操作で自動保存する（保存ボタンは持たない）。
  依存: render/common.js, logic/debounce.js, store/notesStore.js, store/categoriesStore.js, store/typesStore.js
 
+ 【タイトルは1行目から自動生成】iPhone純正メモアプリと同様、タイトル専用の入力欄は持たず、
+ 本文と1つの入力欄（textarea）にまとめている。1行目がタイトル、2行目以降が本文として保存される
+ （1行目しか無ければ本文は空になる）。タイトルを別途意識して入力する必要がない。
+
  【IME変換中の保存】compositionstart〜compositionendの間は自動保存の実行そのものを待つ
  （変換途中の未確定文字を保存しないため）。入力欄が再描画で壊れないようにする対策自体は
  render/appShell.js側（フォーカス中は再描画を保留する仕組み）で行っている。
@@ -14,6 +18,20 @@
 
   var AUTOSAVE_DELAY_MS = 500;
   var NEW_TYPE_VALUE = '__new__';
+
+  /** @param {string} title @param {string} content @returns {string} 入力欄に表示する結合済みテキスト */
+  function joinTitleAndContent(title, content) {
+    if (!title) return content;
+    if (!content) return title;
+    return title + '\n' + content;
+  }
+
+  /** @param {string} fullText @returns {{title: string, content: string}} 1行目をタイトル、残りを本文として分割する */
+  function splitTitleAndContent(fullText) {
+    var newlineIndex = fullText.indexOf('\n');
+    if (newlineIndex === -1) return { title: fullText, content: '' };
+    return { title: fullText.slice(0, newlineIndex), content: fullText.slice(newlineIndex + 1) };
+  }
 
   /** @type {{noteId: string, getPatch: Function, isComposing: Function, flush: Function, cancel: Function, trigger: Function}|null} */
   var pending = null;
@@ -113,8 +131,7 @@
       '      <button type="button" class="btn-text" data-action="openAiSuggest" data-id="' + note.id + '">AIカテゴリ提案</button>' +
       '    </div>' +
       '  </div>' +
-      '  <input type="text" id="noteTitleInput" class="note-title-input" placeholder="無題" value="' + c.escapeHtml(note.title) + '" />' +
-      '  <textarea id="noteContentInput" class="note-content-input" placeholder="本文を入力…">' + c.escapeHtml(note.content) + '</textarea>' +
+      '  <textarea id="noteContentInput" class="note-content-input" placeholder="メモを入力…">' + c.escapeHtml(joinTitleAndContent(note.title, note.content)) + '</textarea>' +
       '  <div class="note-editor-categories">' +
       '    <div class="chip-row">' + categoryChipsHtml(note) + '</div>' +
       '    <input type="text" list="categoryDatalist" class="category-add-input" id="categoryAddInput" placeholder="+ カテゴリを追加（Enterで確定）" />' +
@@ -150,23 +167,18 @@
   function mount(note) {
     if (!note) return;
 
-    var titleInput = document.getElementById('noteTitleInput');
     var contentInput = document.getElementById('noteContentInput');
     var categoryAddInput = document.getElementById('categoryAddInput');
 
     function currentPatch() {
-      return {
-        title: titleInput ? titleInput.value : note.title,
-        content: contentInput ? contentInput.value : note.content
-      };
+      return contentInput ? splitTitleAndContent(contentInput.value) : { title: note.title, content: note.content };
     }
 
     // 日本語入力（IME）などの変換中は、compositionstart〜compositionendの間trueになる。
     // 変換確定前に自動保存の再描画が起きて入力中の文字が消える不具合を防ぐために使う。
-    var titleComposing = false;
-    var contentComposing = false;
+    var composing = false;
     function isComposing() {
-      return titleComposing || contentComposing;
+      return composing;
     }
 
     // フォーカスがある間はappShell.js側で再描画自体を保留している（編集中の入力欄が
@@ -176,21 +188,10 @@
       App.Render.appShell.flushDeferredRender();
     }
 
-    if (titleInput) {
-      titleInput.addEventListener('compositionstart', function () { titleComposing = true; });
-      titleInput.addEventListener('compositionend', function () {
-        titleComposing = false;
-        scheduleSave(note.id, currentPatch, isComposing);
-      });
-      titleInput.addEventListener('input', function () {
-        scheduleSave(note.id, currentPatch, isComposing);
-      });
-      titleInput.addEventListener('blur', flushDeferredRenderIfAny);
-    }
     if (contentInput) {
-      contentInput.addEventListener('compositionstart', function () { contentComposing = true; });
+      contentInput.addEventListener('compositionstart', function () { composing = true; });
       contentInput.addEventListener('compositionend', function () {
-        contentComposing = false;
+        composing = false;
         scheduleSave(note.id, currentPatch, isComposing);
       });
       contentInput.addEventListener('input', function () {

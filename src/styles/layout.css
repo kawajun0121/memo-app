@@ -208,21 +208,13 @@
   gap: 12px;
 }
 
-.note-title-input {
-  flex: none;
-  border: none;
-  font-size: 19px;
-  font-weight: 600;
-  padding: 4px 0;
-  margin-bottom: 4px;
-}
-
 .note-content-input {
   flex: 1;
   min-height: 200px;
   border: none;
   resize: none;
   padding: 4px 0;
+  font-size: 15px;
   line-height: 1.7;
 }
 
@@ -365,10 +357,6 @@
   textarea,
   select {
     font-size: 16px;
-  }
-
-  .note-title-input {
-    font-size: 20px;
   }
 
   .note-content-input {

@@ -170,14 +170,14 @@
     App.Store.uiStore.selectNote(d.id);
   };
 
-  // 空のメモを作成し、そのままタイトル・本文・カテゴリ・種類などを入力できるよう
+  // 空のメモを作成し、そのままタイトル（1行目）・本文・カテゴリ・種類などを入力できるよう
   // 編集画面を開く（新規作成ボタン・Ctrl+Nの両方から呼ばれる）
   App.Actions['createFullNote'] = function () {
     var note = App.Store.notesStore.create({});
     App.Store.uiStore.selectNote(note.id);
     setTimeout(function () {
-      var titleInput = document.getElementById('noteTitleInput');
-      if (titleInput) titleInput.focus();
+      var contentInput = document.getElementById('noteContentInput');
+      if (contentInput) contentInput.focus();
     }, 0);
   };
 

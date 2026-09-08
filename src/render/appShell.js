@@ -85,12 +85,13 @@
     return lastRenderedNotes.map(function (n) { return n.id; });
   }
 
-  var EDITABLE_NOTE_FIELD_IDS = { noteTitleInput: true, noteContentInput: true };
+  var EDITABLE_NOTE_FIELD_IDS = { noteContentInput: true };
   var lastRenderedSelectedNoteId = undefined; // undefined = まだ一度も描画していない
   var renderPendingDeferred = false;
 
-  /** 「今まさにこのメモのタイトル/本文欄を編集中で、かつメモ自体は切り替わっていない」かどうか。
-   *  この場合だけ再描画を保留する（別メモ・別ビューへの切り替えは対象外にし、即座に反映させる）。 */
+  /** 「今まさにこのメモの本文欄（1行目がタイトルを兼ねる）を編集中で、かつメモ自体は
+   *  切り替わっていない」かどうか。この場合だけ再描画を保留する（別メモ・別ビューへの
+   *  切り替えは対象外にし、即座に反映させる）。 */
   function isEditingCurrentNoteField(currentSelectedNoteId) {
     var activeId = document.activeElement && document.activeElement.id;
     if (!EDITABLE_NOTE_FIELD_IDS[activeId]) return false;
