@@ -2,6 +2,10 @@
  役割: 右カラム（メモ本文の閲覧・編集）。画面遷移せずインラインで編集でき、
        入力後300〜800msの無操作で自動保存する（保存ボタンは持たない）。
  依存: render/common.js, logic/debounce.js, store/notesStore.js, store/categoriesStore.js, store/typesStore.js
+
+ 【IME変換中の保存】compositionstart〜compositionendの間は自動保存の実行そのものを待つ
+ （変換途中の未確定文字を保存しないため）。入力欄が再描画で壊れないようにする対策自体は
+ render/appShell.js側（フォーカス中は再描画を保留する仕組み）で行っている。
 */
 (function (App) {
   'use strict';
@@ -153,6 +157,13 @@
       return titleComposing || contentComposing;
     }
 
+    // フォーカスがある間はappShell.js側で再描画自体を保留している（編集中の入力欄が
+    // 作り直されて壊れるのを防ぐため）。フォーカスが外れたタイミングで、保留されていた
+    // 再描画（他メモの自動保存・カテゴリ変更・クラウド同期の反映など）をまとめて実行する。
+    function flushDeferredRenderIfAny() {
+      App.Render.appShell.flushDeferredRender();
+    }
+
     if (titleInput) {
       titleInput.addEventListener('compositionstart', function () { titleComposing = true; });
       titleInput.addEventListener('compositionend', function () {
@@ -162,6 +173,7 @@
       titleInput.addEventListener('input', function () {
         scheduleSave(note.id, currentPatch, isComposing);
       });
+      titleInput.addEventListener('blur', flushDeferredRenderIfAny);
     }
     if (contentInput) {
       contentInput.addEventListener('compositionstart', function () { contentComposing = true; });
@@ -172,6 +184,7 @@
       contentInput.addEventListener('input', function () {
         scheduleSave(note.id, currentPatch, isComposing);
       });
+      contentInput.addEventListener('blur', flushDeferredRenderIfAny);
     }
     if (categoryAddInput) {
       categoryAddInput.addEventListener('keydown', function (evt) {

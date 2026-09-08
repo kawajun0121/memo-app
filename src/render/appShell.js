@@ -10,12 +10,16 @@
  丸ごと作り直すとフォーカス・カーソル位置・スクロール位置が失われるため、
  withUiStatePreserved() で再描画の前後にそれらを覚えておき復元する。
 
- 【IME変換中は再描画しない】日本語入力などの変換中（compositionstart〜compositionend）に
- #appの中身が作り直されると、入力中のinput/textarea自体が新しい要素に置き換わり、
- 変換中の文字が消える・乱れる不具合が起きる。自分自身の自動保存（render/noteEditor.js側でも
- 個別に待つようにしている）だけでなく、クラウド同期の受信やカテゴリ変更など他のあらゆる
- ストア変化がトリガーになり得るため、ここ（renderAllの入口）で一括して「変換中は再描画を
- 保留し、変換確定後にまとめて1回だけ再描画する」ようにしている。
+ 【編集中の入力欄は再描画で壊さない】メモのタイトル・本文欄にフォーカスがある間に#appの中身が
+ 作り直されると、入力中のinput/textarea自体が新しいDOM要素に置き換わってしまい、日本語入力の
+ 変換中の文字が消える・乱れるなどの不具合につながる。当初はcompositionstart〜compositionendの
+ 間だけ再描画を保留していたが、実機での変換イベントの発火タイミングは想定通りとは限らないため、
+ タイミングに依存しないより確実な方法に変更した: 「タイトル/本文欄にフォーカスがあり、かつ
+ 開いているメモが変わっていない（＝自分自身の自動保存やクラウド同期など、今開いているメモの
+ 見た目を作り直す必要が実質無い変化）」場合は、そもそも再描画そのものを行わない。
+ 別のメモやビューに切り替える操作（selectNote等）は開いているメモIDが変わるためこの対象外になり、
+ 通常どおり即座に再描画される。保留した再描画は、その入力欄からフォーカスが外れた時
+ （render/noteEditor.jsのblurハンドラ）に改めてまとめて実行する。
 */
 (function (App) {
   'use strict';
@@ -81,33 +85,40 @@
     return lastRenderedNotes.map(function (n) { return n.id; });
   }
 
-  var isComposing = false;
-  var renderPendingWhileComposing = false;
+  var EDITABLE_NOTE_FIELD_IDS = { noteTitleInput: true, noteContentInput: true };
+  var lastRenderedSelectedNoteId = undefined; // undefined = まだ一度も描画していない
+  var renderPendingDeferred = false;
 
-  document.addEventListener('compositionstart', function () {
-    isComposing = true;
-  });
-  document.addEventListener('compositionend', function () {
-    isComposing = false;
-    if (renderPendingWhileComposing) {
-      renderPendingWhileComposing = false;
+  /** 「今まさにこのメモのタイトル/本文欄を編集中で、かつメモ自体は切り替わっていない」かどうか。
+   *  この場合だけ再描画を保留する（別メモ・別ビューへの切り替えは対象外にし、即座に反映させる）。 */
+  function isEditingCurrentNoteField(currentSelectedNoteId) {
+    var activeId = document.activeElement && document.activeElement.id;
+    if (!EDITABLE_NOTE_FIELD_IDS[activeId]) return false;
+    return currentSelectedNoteId === lastRenderedSelectedNoteId;
+  }
+
+  /** タイトル/本文欄からフォーカスが外れた時などに、保留していた再描画があれば実行する。 */
+  function flushDeferredRender() {
+    if (renderPendingDeferred) {
+      renderPendingDeferred = false;
       renderAll();
     }
-  });
+  }
 
   function renderAll() {
-    if (isComposing) {
-      // 変換確定（compositionend）まで再描画を保留する。変換中に何度renderAllが
-      // 呼ばれてもよいよう、確定後にまとめて1回だけ実行すればよい。
-      renderPendingWhileComposing = true;
+    var pendingSelectedNoteId = App.Store.uiStore.getState().selectedNoteId;
+    if (isEditingCurrentNoteField(pendingSelectedNoteId)) {
+      renderPendingDeferred = true;
       return;
     }
+    renderPendingDeferred = false;
     var container = document.getElementById('app');
     withUiStatePreserved(container, function () {
       var ui = App.Store.uiStore.getState();
       var lookups = buildLookups();
       var notes = getVisibleNotes(ui, lookups);
       lastRenderedNotes = notes;
+      lastRenderedSelectedNoteId = ui.selectedNoteId;
       var selectedNote = ui.selectedNoteId ? App.Store.notesStore.getById(ui.selectedNoteId) : null;
 
       var listCtx = {
@@ -145,5 +156,10 @@
     App.Render.common.bindActionDelegation(app);
   }
 
-  App.Render.appShell = { renderAll: renderAll, init: init, getLastRenderedNoteIds: getLastRenderedNoteIds };
+  App.Render.appShell = {
+    renderAll: renderAll,
+    init: init,
+    getLastRenderedNoteIds: getLastRenderedNoteIds,
+    flushDeferredRender: flushDeferredRender
+  };
 })(window.MemoApp = window.MemoApp || {});

@@ -32,10 +32,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="メモ">
 
-<!-- ASSET_VERSION = 5（キャッシュ対策。中身を変更したファイルがあれば数字を上げる） -->
-<link rel="stylesheet" href="src/styles/base.css?v=5">
-<link rel="stylesheet" href="src/styles/layout.css?v=5">
-<link rel="stylesheet" href="src/styles/components.css?v=5">
+<!-- ASSET_VERSION = 6（キャッシュ対策。中身を変更したファイルがあれば数字を上げる） -->
+<link rel="stylesheet" href="src/styles/base.css?v=6">
+<link rel="stylesheet" href="src/styles/layout.css?v=6">
+<link rel="stylesheet" href="src/styles/components.css?v=6">
 </head>
 <body>
 <!-- ログイン状態の判定中に一瞬だけ表示される簡易ローディング表示。boot()が判定し次第すぐ置き換わる -->
@@ -45,60 +45,60 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="src/firebaseConfig.js?v=5"></script>
-<script src="src/sync/firebaseInit.js?v=5"></script>
+<script src="src/firebaseConfig.js?v=6"></script>
+<script src="src/sync/firebaseInit.js?v=6"></script>
 
-<script src="src/types/typedefs.js?v=5"></script>
+<script src="src/types/typedefs.js?v=6"></script>
 
-<script src="src/logic/id.js?v=5"></script>
-<script src="src/logic/dateUtils.js?v=5"></script>
-<script src="src/logic/debounce.js?v=5"></script>
-<script src="src/logic/filtering.js?v=5"></script>
-<script src="src/logic/sorting.js?v=5"></script>
-<script src="src/logic/historyPolicy.js?v=5"></script>
-<script src="src/logic/navViews.js?v=5"></script>
+<script src="src/logic/id.js?v=6"></script>
+<script src="src/logic/dateUtils.js?v=6"></script>
+<script src="src/logic/debounce.js?v=6"></script>
+<script src="src/logic/filtering.js?v=6"></script>
+<script src="src/logic/sorting.js?v=6"></script>
+<script src="src/logic/historyPolicy.js?v=6"></script>
+<script src="src/logic/navViews.js?v=6"></script>
 
-<script src="src/db/db.js?v=5"></script>
-<script src="src/db/notesRepo.js?v=5"></script>
-<script src="src/db/categoriesRepo.js?v=5"></script>
-<script src="src/db/typesRepo.js?v=5"></script>
-<script src="src/db/historyRepo.js?v=5"></script>
-<script src="src/db/savedViewsRepo.js?v=5"></script>
-<script src="src/db/settingsRepo.js?v=5"></script>
+<script src="src/db/db.js?v=6"></script>
+<script src="src/db/notesRepo.js?v=6"></script>
+<script src="src/db/categoriesRepo.js?v=6"></script>
+<script src="src/db/typesRepo.js?v=6"></script>
+<script src="src/db/historyRepo.js?v=6"></script>
+<script src="src/db/savedViewsRepo.js?v=6"></script>
+<script src="src/db/settingsRepo.js?v=6"></script>
 
-<script src="src/store/state.js?v=5"></script>
-<script src="src/store/notesStore.js?v=5"></script>
-<script src="src/store/categoriesStore.js?v=5"></script>
-<script src="src/store/typesStore.js?v=5"></script>
-<script src="src/store/savedViewsStore.js?v=5"></script>
-<script src="src/store/historyStore.js?v=5"></script>
-<script src="src/store/aiSuggestStore.js?v=5"></script>
-<script src="src/store/uiStore.js?v=5"></script>
+<script src="src/store/state.js?v=6"></script>
+<script src="src/store/notesStore.js?v=6"></script>
+<script src="src/store/categoriesStore.js?v=6"></script>
+<script src="src/store/typesStore.js?v=6"></script>
+<script src="src/store/savedViewsStore.js?v=6"></script>
+<script src="src/store/historyStore.js?v=6"></script>
+<script src="src/store/aiSuggestStore.js?v=6"></script>
+<script src="src/store/uiStore.js?v=6"></script>
 
-<script src="src/ai/aiSuggest.js?v=5"></script>
+<script src="src/ai/aiSuggest.js?v=6"></script>
 
-<script src="src/render/common.js?v=5"></script>
-<script src="src/render/sidebar.js?v=5"></script>
-<script src="src/render/noteCard.js?v=5"></script>
-<script src="src/render/bulkActionBar.js?v=5"></script>
-<script src="src/render/noteList.js?v=5"></script>
-<script src="src/render/noteEditor.js?v=5"></script>
-<script src="src/render/historyPanel.js?v=5"></script>
-<script src="src/render/categoryManagerModal.js?v=5"></script>
-<script src="src/render/aiSuggestPanel.js?v=5"></script>
-<script src="src/render/savedViewModal.js?v=5"></script>
-<script src="src/render/settingsModal.js?v=5"></script>
-<script src="src/render/shortcuts.js?v=5"></script>
-<script src="src/render/appShell.js?v=5"></script>
+<script src="src/render/common.js?v=6"></script>
+<script src="src/render/sidebar.js?v=6"></script>
+<script src="src/render/noteCard.js?v=6"></script>
+<script src="src/render/bulkActionBar.js?v=6"></script>
+<script src="src/render/noteList.js?v=6"></script>
+<script src="src/render/noteEditor.js?v=6"></script>
+<script src="src/render/historyPanel.js?v=6"></script>
+<script src="src/render/categoryManagerModal.js?v=6"></script>
+<script src="src/render/aiSuggestPanel.js?v=6"></script>
+<script src="src/render/savedViewModal.js?v=6"></script>
+<script src="src/render/settingsModal.js?v=6"></script>
+<script src="src/render/shortcuts.js?v=6"></script>
+<script src="src/render/appShell.js?v=6"></script>
 
 <!-- 同期・認証（ストアと画面描画層に依存するためここに置く） -->
-<script src="src/sync/authUI.js?v=5"></script>
-<script src="src/sync/cloudSync.js?v=5"></script>
+<script src="src/sync/authUI.js?v=6"></script>
+<script src="src/sync/cloudSync.js?v=6"></script>
 
 <!-- 起動処理（必ず最後） -->
-<script src="src/main.js?v=5"></script>
+<script src="src/main.js?v=6"></script>
 
 <!-- PWA登録の後片付け（アプリ本体の起動には影響しない独立処理） -->
-<script src="src/pwa.js?v=5"></script>
+<script src="src/pwa.js?v=6"></script>
 </body>
 </html>
