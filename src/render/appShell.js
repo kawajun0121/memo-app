@@ -9,6 +9,13 @@
  メモが1万件あっても丸ごと再描画のコスト自体は小さく保てる。
  丸ごと作り直すとフォーカス・カーソル位置・スクロール位置が失われるため、
  withUiStatePreserved() で再描画の前後にそれらを覚えておき復元する。
+
+ 【IME変換中は再描画しない】日本語入力などの変換中（compositionstart〜compositionend）に
+ #appの中身が作り直されると、入力中のinput/textarea自体が新しい要素に置き換わり、
+ 変換中の文字が消える・乱れる不具合が起きる。自分自身の自動保存（render/noteEditor.js側でも
+ 個別に待つようにしている）だけでなく、クラウド同期の受信やカテゴリ変更など他のあらゆる
+ ストア変化がトリガーになり得るため、ここ（renderAllの入口）で一括して「変換中は再描画を
+ 保留し、変換確定後にまとめて1回だけ再描画する」ようにしている。
 */
 (function (App) {
   'use strict';
@@ -74,7 +81,27 @@
     return lastRenderedNotes.map(function (n) { return n.id; });
   }
 
+  var isComposing = false;
+  var renderPendingWhileComposing = false;
+
+  document.addEventListener('compositionstart', function () {
+    isComposing = true;
+  });
+  document.addEventListener('compositionend', function () {
+    isComposing = false;
+    if (renderPendingWhileComposing) {
+      renderPendingWhileComposing = false;
+      renderAll();
+    }
+  });
+
   function renderAll() {
+    if (isComposing) {
+      // 変換確定（compositionend）まで再描画を保留する。変換中に何度renderAllが
+      // 呼ばれてもよいよう、確定後にまとめて1回だけ実行すればよい。
+      renderPendingWhileComposing = true;
+      return;
+    }
     var container = document.getElementById('app');
     withUiStatePreserved(container, function () {
       var ui = App.Store.uiStore.getState();
