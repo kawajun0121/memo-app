@@ -349,31 +349,43 @@
     if (!root) return;
     destroyCurrentEditor();
 
+    /** 【重要・不具合修正】このmount()呼び出し1回ぶんに閉じたローカル変数。以前はcurrentPatch/
+     *  isComposingがモジュール変数currentEditorを直接参照していたため、このメモの自動保存の
+     *  デバウンス（500ms）が発火する前に別のメモへ切り替えると、currentEditorはその新しい
+     *  メモのエディタに差し替わってしまい、発火時に「新しいメモの内容」を「このメモのid」で
+     *  保存してしまいタイトル・本文が失われる不具合があった。mount()ごとに閉じたローカル参照
+     *  （editorForThisMount）を使うことで、後から別のメモが開かれてモジュール変数
+     *  currentEditorが差し替わっても、このメモ専用のcurrentPatch/isComposingは常にこの
+     *  メモ自身のエディタインスタンスだけを参照し続ける（textareaの頃のcontentInputクロージャと
+     *  同じ考え方）。 */
+    var editorForThisMount = null;
+
     function flushDeferredRenderIfAny() {
       App.Render.appShell.flushDeferredRender();
     }
 
     function currentPatch() {
-      return currentEditor ? buildPatchFromEditor(currentEditor) : { title: note.title, plainText: note.plainText };
+      return editorForThisMount ? buildPatchFromEditor(editorForThisMount) : { title: note.title, plainText: note.plainText };
     }
     function isComposing() {
-      return !!(currentEditor && currentEditor.view && currentEditor.view.composing);
+      return !!(editorForThisMount && editorForThisMount.view && editorForThisMount.view.composing);
     }
     function handleUpdate() {
       if (isComposing()) return; // IME変換中は確定まで待つ（確定時に改めてupdateが発火する）
       var patch = currentPatch();
       promoteDraftIfNeeded(note.id, patch);
       scheduleSave(note.id, currentPatch, isComposing);
-      refreshToolbarActiveStates(currentEditor);
+      refreshToolbarActiveStates(editorForThisMount);
     }
 
     var editor = window.MemoApp.RichEditor.mount(root, {
       content: contentJSONForNote(note),
       autofocus: isDraftId(note.id),
       onUpdate: handleUpdate,
-      onSelectionUpdate: function () { refreshToolbarActiveStates(currentEditor); }
+      onSelectionUpdate: function () { refreshToolbarActiveStates(editorForThisMount); }
     });
-    currentEditor = editor;
+    editorForThisMount = editor;
+    currentEditor = editor; // ツールバー操作等、常に「今表示中」のエディタを指すためのモジュール変数（こちらは差し替わって正しい）
     currentEditorNoteId = note.id;
     editor.on('blur', flushDeferredRenderIfAny);
     refreshToolbarActiveStates(editor);
