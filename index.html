@@ -32,10 +32,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="メモ">
 
-<!-- ASSET_VERSION = 16（キャッシュ対策。中身を変更したファイルがあれば数字を上げる） -->
-<link rel="stylesheet" href="src/styles/base.css?v=16">
-<link rel="stylesheet" href="src/styles/layout.css?v=16">
-<link rel="stylesheet" href="src/styles/components.css?v=16">
+<!-- ASSET_VERSION = 17（キャッシュ対策。中身を変更したファイルがあれば数字を上げる） -->
+<link rel="stylesheet" href="src/styles/base.css?v=17">
+<link rel="stylesheet" href="src/styles/layout.css?v=17">
+<link rel="stylesheet" href="src/styles/components.css?v=17">
 </head>
 <body>
 <!-- ログイン状態の判定中に一瞬だけ表示される簡易ローディング表示。boot()が判定し次第すぐ置き換わる -->
@@ -45,71 +45,71 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="src/firebaseConfig.js?v=16"></script>
-<script src="src/sync/firebaseInit.js?v=16"></script>
+<script src="src/firebaseConfig.js?v=17"></script>
+<script src="src/sync/firebaseInit.js?v=17"></script>
 
-<script src="src/types/typedefs.js?v=16"></script>
+<script src="src/types/typedefs.js?v=17"></script>
 
-<script src="src/richtext/textExtract.js?v=16"></script>
+<script src="src/richtext/textExtract.js?v=17"></script>
 
-<script src="src/logic/id.js?v=16"></script>
-<script src="src/logic/dateUtils.js?v=16"></script>
-<script src="src/logic/debounce.js?v=16"></script>
-<script src="src/logic/filtering.js?v=16"></script>
-<script src="src/logic/sorting.js?v=16"></script>
-<script src="src/logic/historyPolicy.js?v=16"></script>
-<script src="src/logic/navViews.js?v=16"></script>
+<script src="src/logic/id.js?v=17"></script>
+<script src="src/logic/dateUtils.js?v=17"></script>
+<script src="src/logic/debounce.js?v=17"></script>
+<script src="src/logic/filtering.js?v=17"></script>
+<script src="src/logic/sorting.js?v=17"></script>
+<script src="src/logic/historyPolicy.js?v=17"></script>
+<script src="src/logic/navViews.js?v=17"></script>
 
-<script src="src/db/db.js?v=16"></script>
-<script src="src/db/notesRepo.js?v=16"></script>
-<script src="src/db/categoriesRepo.js?v=16"></script>
-<script src="src/db/typesRepo.js?v=16"></script>
-<script src="src/db/historyRepo.js?v=16"></script>
-<script src="src/db/savedViewsRepo.js?v=16"></script>
-<script src="src/db/settingsRepo.js?v=16"></script>
+<script src="src/db/db.js?v=17"></script>
+<script src="src/db/notesRepo.js?v=17"></script>
+<script src="src/db/categoriesRepo.js?v=17"></script>
+<script src="src/db/typesRepo.js?v=17"></script>
+<script src="src/db/historyRepo.js?v=17"></script>
+<script src="src/db/savedViewsRepo.js?v=17"></script>
+<script src="src/db/settingsRepo.js?v=17"></script>
 
-<script src="src/store/state.js?v=16"></script>
-<script src="src/store/notesStore.js?v=16"></script>
-<script src="src/store/categoriesStore.js?v=16"></script>
-<script src="src/store/typesStore.js?v=16"></script>
-<script src="src/store/savedViewsStore.js?v=16"></script>
-<script src="src/store/historyStore.js?v=16"></script>
-<script src="src/store/aiSuggestStore.js?v=16"></script>
-<script src="src/store/syncStatusStore.js?v=16"></script>
-<script src="src/store/uiStore.js?v=16"></script>
+<script src="src/store/state.js?v=17"></script>
+<script src="src/store/notesStore.js?v=17"></script>
+<script src="src/store/categoriesStore.js?v=17"></script>
+<script src="src/store/typesStore.js?v=17"></script>
+<script src="src/store/savedViewsStore.js?v=17"></script>
+<script src="src/store/historyStore.js?v=17"></script>
+<script src="src/store/aiSuggestStore.js?v=17"></script>
+<script src="src/store/syncStatusStore.js?v=17"></script>
+<script src="src/store/uiStore.js?v=17"></script>
 
-<script src="src/ai/aiSuggest.js?v=16"></script>
+<script src="src/ai/aiSuggest.js?v=17"></script>
 
 <!-- リッチテキストエディタ本体（Tiptap）。type="module"のためCDNからの取得完了までDOMContentLoadedを待つ。
      詳細はrichtext/tiptapEditor.js冒頭のコメントを参照 -->
-<script type="module" src="src/richtext/tiptapEditor.js?v=16"></script>
+<script type="module" src="src/richtext/tiptapEditor.js?v=17"></script>
 
-<script src="src/render/common.js?v=16"></script>
-<script src="src/render/sheet.js?v=16"></script>
-<script src="src/render/toast.js?v=16"></script>
-<script src="src/render/bottomNav.js?v=16"></script>
-<script src="src/render/searchScreen.js?v=16"></script>
-<script src="src/render/sidebar.js?v=16"></script>
-<script src="src/render/noteCard.js?v=16"></script>
-<script src="src/render/bulkActionBar.js?v=16"></script>
-<script src="src/render/noteList.js?v=16"></script>
-<script src="src/render/noteEditor.js?v=16"></script>
-<script src="src/render/historyPanel.js?v=16"></script>
-<script src="src/render/categoryManagerModal.js?v=16"></script>
-<script src="src/render/aiSuggestPanel.js?v=16"></script>
-<script src="src/render/savedViewModal.js?v=16"></script>
-<script src="src/render/settingsModal.js?v=16"></script>
-<script src="src/render/shortcuts.js?v=16"></script>
-<script src="src/render/appShell.js?v=16"></script>
+<script src="src/render/common.js?v=17"></script>
+<script src="src/render/sheet.js?v=17"></script>
+<script src="src/render/toast.js?v=17"></script>
+<script src="src/render/bottomNav.js?v=17"></script>
+<script src="src/render/searchScreen.js?v=17"></script>
+<script src="src/render/sidebar.js?v=17"></script>
+<script src="src/render/noteCard.js?v=17"></script>
+<script src="src/render/bulkActionBar.js?v=17"></script>
+<script src="src/render/noteList.js?v=17"></script>
+<script src="src/render/noteEditor.js?v=17"></script>
+<script src="src/render/historyPanel.js?v=17"></script>
+<script src="src/render/categoryManagerModal.js?v=17"></script>
+<script src="src/render/aiSuggestPanel.js?v=17"></script>
+<script src="src/render/savedViewModal.js?v=17"></script>
+<script src="src/render/settingsModal.js?v=17"></script>
+<script src="src/render/shortcuts.js?v=17"></script>
+<script src="src/render/appShell.js?v=17"></script>
 
 <!-- 同期・認証（ストアと画面描画層に依存するためここに置く） -->
-<script src="src/sync/authUI.js?v=16"></script>
-<script src="src/sync/cloudSync.js?v=16"></script>
+<script src="src/sync/authUI.js?v=17"></script>
+<script src="src/sync/cloudSync.js?v=17"></script>
 
 <!-- 起動処理（必ず最後） -->
-<script src="src/main.js?v=16"></script>
+<script src="src/main.js?v=17"></script>
 
 <!-- PWA（Service Worker）登録。アプリ本体の起動には影響しない独立処理 -->
-<script src="src/pwa.js?v=16"></script>
+<script src="src/pwa.js?v=17"></script>
 </body>
 </html>
