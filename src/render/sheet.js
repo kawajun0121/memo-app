@@ -130,9 +130,50 @@
     return wrap('その他メニュー', body, 'closeEditorMenu');
   }
 
+  /** リンクの表示文字・URL設定（項目5）。現在の選択/カーソル位置の状態はuiStore.panelsのextraに
+   *  main.js側（openLinkPicker）が積んで渡す（既存リンクの編集時はURL/表示文字を事前入力する）。 */
+  function renderLinkPicker(ui) {
+    if (!ui.panels.linkPickerOpen) return '';
+    var p = ui.panels;
+    var body = '' +
+      '<label class="settings-label">表示文字</label>' +
+      '<input type="text" id="linkPickerTextInput" class="sheet-add-input enter-submits" value="' + c.escapeHtml(p.linkPickerText || '') + '" placeholder="表示する文字" />' +
+      '<label class="settings-label" style="margin-top:12px;display:block">URL</label>' +
+      '<input type="text" id="linkPickerUrlInput" class="sheet-add-input enter-submits" value="' + c.escapeHtml(p.linkPickerUrl || '') + '" placeholder="https://..." inputmode="url" autocapitalize="off" autocorrect="off" />' +
+      '<p class="settings-note">http(s)・mailto・telのリンクのみ設定できます。</p>' +
+      '<div class="modal-actions">' +
+      '  <button type="button" class="btn-text btn-primary" data-action="saveLinkPicker">保存</button>' +
+      (p.linkPickerHasExistingLink ? '  <button type="button" class="btn-text btn-danger" data-action="removeLinkPicker">リンク解除</button>' : '') +
+      '  <button type="button" class="btn-text" data-action="closeLinkPicker">キャンセル</button>' +
+      '</div>';
+    return wrap('リンクを設定', body, 'closeLinkPicker');
+  }
+
+  var COLOR_OPTIONS = [
+    { key: '', label: '標準' },
+    { key: 'red', label: '赤（重要・注意）' },
+    { key: 'blue', label: '青（情報）' },
+    { key: 'green', label: '緑（完了・良好）' },
+    { key: 'orange', label: 'オレンジ（保留・確認）' },
+    { key: 'gray', label: 'グレー（補足）' }
+  ];
+
+  /** 文字色（限定6色。項目2）。 */
+  function renderColorPicker(ui) {
+    if (!ui.panels.colorPickerOpen) return '';
+    var body = '<div class="sheet-picker-list">' + COLOR_OPTIONS.map(function (opt) {
+      return '<button type="button" class="sheet-picker-item" data-action="applyTextColor" data-id="' + opt.key + '">' +
+        '<span class="color-swatch" data-color="' + opt.key + '" aria-hidden="true"></span>' +
+        '<span class="sheet-picker-label">' + opt.label + '</span>' +
+        '</button>';
+    }).join('') + '</div>';
+    return wrap('文字色', body, 'closeColorPicker');
+  }
+
   function renderAll(ui, note) {
     return renderCategoryPicker(ui) + renderTypePicker(ui) + renderEditorMenu(ui, note) +
-      renderBulkCategoryAdd(ui) + renderBulkCategoryRemove(ui) + renderBulkTypeChange(ui);
+      renderBulkCategoryAdd(ui) + renderBulkCategoryRemove(ui) + renderBulkTypeChange(ui) +
+      renderLinkPicker(ui) + renderColorPicker(ui);
   }
 
   App.Render.sheet = {

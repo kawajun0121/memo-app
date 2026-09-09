@@ -85,7 +85,37 @@
     return lastRenderedNotes.map(function (n) { return n.id; });
   }
 
-  var EDITABLE_NOTE_FIELD_IDS = { noteContentInput: true };
+  /** renderAll()とsyncListLive()の両方で使う、一覧に必要な計算をまとめたもの。 */
+  function computeListState(ui) {
+    var lookups = buildLookups();
+    var notes = getVisibleNotes(ui, lookups);
+    var totalScopeCount = ui.viewMeta.kind === 'trash'
+      ? App.Store.notesStore.getTrashed().length
+      : App.Store.notesStore.getAllActive().length;
+    var listCtx = {
+      categoryNameById: lookups.categoryNameById,
+      typeNameById: lookups.typeNameById,
+      selectedNoteId: ui.selectedNoteId,
+      multiSelectMode: ui.multiSelectMode,
+      selectedIds: ui.selectedIds,
+      revealedDeleteNoteId: ui.revealedDeleteNoteId,
+      totalScopeCount: totalScopeCount
+    };
+    return { notes: notes, listCtx: listCtx };
+  }
+
+  /**
+   * メモ編集中で#app全体の再描画が保留されている間も、一覧・サイドバーの件数表示だけは
+   * その場で最新化する（優先度1: 新規メモ・一覧件数の即時反映）。編集中の入力欄には一切触れない。
+   */
+  function syncListLive() {
+    var ui = App.Store.uiStore.getState();
+    var computed = computeListState(ui);
+    lastRenderedNotes = computed.notes;
+    App.Render.noteList.syncLive(computed.notes, computed.listCtx);
+    App.Render.sidebar.syncLiveCounts();
+  }
+
   var lastRenderedNoteKey = undefined; // undefined = まだ一度も描画していない
   var renderPendingDeferred = false;
 
@@ -100,10 +130,12 @@
 
   /** 「今まさにこのメモの本文欄（1行目がタイトルを兼ねる）を編集中で、かつメモ自体は
    *  切り替わっていない」かどうか。この場合だけ再描画を保留する（別メモ・別ビューへの
-   *  切り替えは対象外にし、即座に反映させる）。 */
+   *  切り替えは対象外にし、即座に反映させる）。
+   *  本文欄はTiptap（contenteditable）のため、固定idではなく.note-content-editorクラスの
+   *  子孫にフォーカスがあるかどうかで判定する（実際にフォーカスを持つのは内部の.ProseMirror要素）。 */
   function isEditingCurrentNoteField(noteKey) {
-    var activeId = document.activeElement && document.activeElement.id;
-    if (!EDITABLE_NOTE_FIELD_IDS[activeId]) return false;
+    var active = document.activeElement;
+    if (!active || !active.closest || !active.closest('.note-content-editor')) return false;
     return noteKey === lastRenderedNoteKey;
   }
 
@@ -125,25 +157,12 @@
     var container = document.getElementById('app');
     withUiStatePreserved(container, function () {
       var ui = App.Store.uiStore.getState();
-      var lookups = buildLookups();
-      var notes = getVisibleNotes(ui, lookups);
+      var computed = computeListState(ui);
+      var notes = computed.notes;
+      var listCtx = computed.listCtx;
       lastRenderedNotes = notes;
       lastRenderedNoteKey = currentNoteKey(ui);
       var selectedNote = ui.draftNote || (ui.selectedNoteId ? App.Store.notesStore.getById(ui.selectedNoteId) : null);
-
-      var totalScopeCount = ui.viewMeta.kind === 'trash'
-        ? App.Store.notesStore.getTrashed().length
-        : App.Store.notesStore.getAllActive().length;
-
-      var listCtx = {
-        categoryNameById: lookups.categoryNameById,
-        typeNameById: lookups.typeNameById,
-        selectedNoteId: ui.selectedNoteId,
-        multiSelectMode: ui.multiSelectMode,
-        selectedIds: ui.selectedIds,
-        revealedDeleteNoteId: ui.revealedDeleteNoteId,
-        totalScopeCount: totalScopeCount
-      };
 
       container.setAttribute('data-mobile-view', ui.mobileView);
       container.innerHTML = '' +
@@ -153,7 +172,7 @@
         App.Render.noteEditor.render(selectedNote) +
         App.Render.searchScreen.render(ui) +
         '</div>' +
-        (ui.mobileView === 'list' ? '<button type="button" class="fab-create mobile-only" data-action="createFullNote" title="新しいメモを作成" aria-label="新しいメモを作成">＋</button>' : '') +
+        (ui.mobileView === 'list' ? '<button type="button" class="fab-create mobile-only" data-action="createFullNote" title="新しいメモを作成" aria-label="新しいメモを作成">' + App.Render.common.icon('create', 26) + '</button>' : '') +
         App.Render.bottomNav.render(ui) +
         App.Render.toast.render(ui) +
         App.Render.historyPanel.render(ui) +
@@ -177,6 +196,7 @@
     renderAll: renderAll,
     init: init,
     getLastRenderedNoteIds: getLastRenderedNoteIds,
-    flushDeferredRender: flushDeferredRender
+    flushDeferredRender: flushDeferredRender,
+    syncListLive: syncListLive
   };
 })(window.MemoApp = window.MemoApp || {});

@@ -142,8 +142,15 @@
 
 .nav-icon {
   width: 22px;
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 18px;
+}
+
+.svg-icon {
+  flex: none;
+  vertical-align: middle;
 }
 
 .nav-label {

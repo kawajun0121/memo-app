@@ -22,11 +22,18 @@
     };
   }
 
+  /** @param {Note} note @returns {string} 検索対象の本文テキスト。新形式(json)はcontent自体がJSON文字列
+   *  （生のHTML/JSONを検索対象にしないため）なので、保存時に導出済みのplainTextを使う。
+   *  旧プレーン形式はcontentがそのままプレーンテキストなのでそれを使う（後方互換）。 */
+  function searchableContent(note) {
+    return note.contentFormat === 'json' ? (note.plainText || '') : (note.content || '');
+  }
+
   function matchesKeyword(note, keyword, categoryNameById, typeNameById) {
     if (!keyword) return true;
     var q = keyword.toLowerCase();
     if (note.title.toLowerCase().indexOf(q) !== -1) return true;
-    if (note.content.toLowerCase().indexOf(q) !== -1) return true;
+    if (searchableContent(note).toLowerCase().indexOf(q) !== -1) return true;
     for (var i = 0; i < note.categoryIds.length; i++) {
       var name = categoryNameById[note.categoryIds[i]];
       if (name && name.toLowerCase().indexOf(q) !== -1) return true;

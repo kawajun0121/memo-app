@@ -25,7 +25,7 @@
       var isSelected = ui.viewMeta.kind === (def.isTrash ? 'trash' : 'basic') && ui.viewMeta.id === def.id;
       var count = countForBasicMenu(def.id, activeNotes);
       return '<button type="button" class="nav-item' + (isSelected ? ' is-selected' : '') + '" data-action="navBasicMenu" data-id="' + def.id + '">' +
-        '<span class="nav-icon">' + def.icon + '</span>' +
+        '<span class="nav-icon">' + c.icon(def.id) + '</span>' +
         '<span class="nav-label">' + c.escapeHtml(def.label) + '</span>' +
         (count !== null ? '<span class="nav-count">' + count + '</span>' : '') +
         '</button>';
@@ -93,14 +93,14 @@
     return '' +
       '<div class="sidebar">' +
       '  <div class="sidebar-header">' +
-      '    <button type="button" class="icon-btn mobile-only" data-action="setMobileViewList" title="メモ一覧に戻る">←</button>' +
+      '    <button type="button" class="icon-btn mobile-only" data-action="setMobileViewList" title="メモ一覧に戻る" aria-label="メモ一覧に戻る">←</button>' +
       '    <span class="app-title">メモ</span>' +
-      '    <button type="button" class="icon-btn" data-action="openSettings" title="設定">⚙</button>' +
+      '    <button type="button" class="icon-btn" data-action="openSettings" title="アプリ設定" aria-label="アプリ設定">' + c.icon('settings') + '</button>' +
       '  </div>' +
       '  <nav class="sidebar-section">' + renderBasicMenu(ui, activeNotes) + '</nav>' +
       '  <div class="sidebar-section-header">' +
       '    <span>カテゴリ</span>' +
-      '    <button type="button" class="icon-btn icon-btn--small" data-action="openCategoryManager" title="カテゴリ管理">⚙</button>' +
+      '    <button type="button" class="icon-btn icon-btn--small" data-action="openCategoryManager" title="カテゴリ管理" aria-label="カテゴリ管理">' + c.icon('settings', 16) + '</button>' +
       '  </div>' +
       '  <nav class="sidebar-section sidebar-section--scroll">' + renderCategories(categories, ui) + '</nav>' +
       '  <div class="sidebar-section-header"><span>種類</span></div>' +
@@ -110,5 +110,28 @@
       '</div>';
   }
 
-  App.Render.sidebar = { render: render };
+  /** 一覧の外で件数に影響する変化（新規メモの正式保存等）があった際、サイドバーが
+   *  表示されていれば（PC、またはモバイル「整理」画面）件数バッジだけをその場で更新する。
+   *  #app全体の再描画に頼らないため、編集中のフォーカスを一切妨げない（優先度1）。 */
+  function syncLiveCounts() {
+    var sidebarEl = document.querySelector('.sidebar');
+    if (!sidebarEl) return;
+    var activeNotes = App.Store.notesStore.getAllActive();
+    App.Logic.navViews.BASIC_MENU.forEach(function (def) {
+      var count = countForBasicMenu(def.id, activeNotes);
+      if (count === null) return;
+      var btn = sidebarEl.querySelector('.nav-item[data-action="navBasicMenu"][data-id="' + def.id + '"] .nav-count');
+      if (btn) btn.textContent = String(count);
+    });
+    App.Store.categoriesStore.getAll().forEach(function (cat) {
+      var el = sidebarEl.querySelector('.nav-item[data-action="navCategory"][data-id="' + cat.id + '"] .nav-count');
+      if (el) el.textContent = String(App.Store.categoriesStore.usageCount(cat.id));
+    });
+    App.Store.typesStore.getAll().forEach(function (t) {
+      var el = sidebarEl.querySelector('.nav-item[data-action="navType"][data-id="' + t.id + '"] .nav-count');
+      if (el) el.textContent = String(App.Store.typesStore.usageCount(t.id));
+    });
+  }
+
+  App.Render.sidebar = { render: render, syncLiveCounts: syncLiveCounts };
 })(window.MemoApp = window.MemoApp || {});

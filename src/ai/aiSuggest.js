@@ -14,6 +14,12 @@
   var MODEL = 'claude-haiku-4-5-20251001';
   var API_URL = 'https://api.anthropic.com/v1/messages';
 
+  /** @param {Note} note @returns {string} プロンプトへ渡す本文。新形式(json)はcontent自体がJSON文字列
+   *  （AIにそのまま読ませても意味を成さない）なので、保存時に導出済みのplainTextを使う。 */
+  function bodyText(note) {
+    return note.contentFormat === 'json' ? (note.plainText || '') : (note.content || '');
+  }
+
   function buildPrompt(note, existingCategoryNames) {
     return [
       'あなたはメモ整理アシスタントです。以下のメモ内容に最も適したカテゴリを提案してください。',
@@ -32,7 +38,7 @@
       note.title || '(なし)',
       '',
       '# メモの本文',
-      note.content || '(なし)',
+      bodyText(note) || '(なし)',
       '',
       '以下のJSON形式のみを出力してください。説明文やコードブロックの記号は不要です。',
       '{"existingCategories": string[], "newCategoryCandidates": string[]}'
@@ -61,7 +67,7 @@
     if (!apiKey) {
       return Promise.reject(new Error('NO_API_KEY'));
     }
-    if (!note.title && !note.content) {
+    if (!note.title && !bodyText(note)) {
       return Promise.reject(new Error('EMPTY_NOTE'));
     }
 

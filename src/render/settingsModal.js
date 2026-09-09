@@ -47,7 +47,8 @@
       renderAccountSection() +
       '      <label class="settings-label">Anthropic APIキー（AIカテゴリ提案機能で使用・任意）</label>' +
       '      <input type="password" id="apiKeyInput" class="saved-view-name-input enter-submits" placeholder="sk-ant-..." value="' + c.escapeHtml(currentKey) + '" autocomplete="off" />' +
-      '      <p class="settings-note">このキーはこの端末のブラウザ内にのみ保存され、AIカテゴリ提案機能の呼び出し以外には使用されません。未設定でもメモの作成・編集・検索など基本機能はすべて利用できます。</p>' +
+      '      <p class="settings-note settings-note--warning">⚠️ 重要: このアプリはサーバーを持たない静的サイトのため、入力したキーはこの端末のブラウザ内（localStorage）に保存され、AIカテゴリ提案の呼び出し時にブラウザから直接Anthropicへ送信されます。この端末を他の人と共有している場合や、共用・貸与・紛失した端末では、保存したキーが第三者に閲覧・利用され得ます。心配な場合は、①未設定のまま基本機能だけを使う、②低い利用上限を設定したキーを使う、③定期的にAnthropic Console側でキーを再発行する、のいずれかをおすすめします。より安全に使うには、キーを保持する専用のバックエンド（Cloudflare Workers等）が必要です（README参照）。</p>' +
+      '      <p class="settings-note">未設定でもメモの作成・編集・検索など基本機能はすべて利用できます。</p>' +
       '      <div class="modal-actions">' +
       '        <button type="button" class="btn-text btn-primary" data-action="saveApiKey">保存</button>' +
       '        <button type="button" class="btn-text btn-danger" data-action="clearApiKey">削除</button>' +

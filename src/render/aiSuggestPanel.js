@@ -52,7 +52,7 @@
       '  <div class="modal-panel">' +
       '    <div class="modal-header">' +
       '      <h3>AIカテゴリ提案</h3>' +
-      '      <button type="button" class="icon-btn" data-action="closeAiSuggest">✕</button>' +
+      '      <button type="button" class="icon-btn" data-action="closeAiSuggest" title="閉じる" aria-label="閉じる">✕</button>' +
       '    </div>' +
       '    <div class="modal-body">' + body + '</div>' +
       '  </div>' +

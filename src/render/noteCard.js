@@ -24,13 +24,20 @@
     return c.escapeHtml(c.snippet(content, 88));
   }
 
+  /** @param {Note} note @returns {string} プレビュー・検索に使う生テキスト。新形式(json)はcontent自体が
+   *  JSON文字列で人間が読める文章ではないため、保存時に導出済みのplainTextを使う。旧プレーン形式は
+   *  contentがそのままプレーンテキストなのでそれを使う（plainText未設定でも問題なく動く＝後方互換）。 */
+  function previewText(note) {
+    return note.contentFormat === 'json' ? (note.plainText || '') : (note.content || '');
+  }
+
   /**
    * @param {Note} note
    * @param {{categoryNameById: Object, typeNameById: Object, isSelected: boolean, multiSelectMode: boolean, isChecked: boolean, isDeleteRevealed: boolean}} ctx
    */
   function render(note, ctx) {
     var title = formatTitleHtml(note.title);
-    var snippetText = formatSnippetHtml(note.content);
+    var snippetText = formatSnippetHtml(previewText(note));
     var chips = note.categoryIds.slice(0, MAX_CHIPS).map(function (id) {
       return c.categoryChip(ctx.categoryNameById[id] || '?');
     }).join('');
@@ -68,37 +75,5 @@
       '</div>';
   }
 
-  /**
-   * 自動保存が完了した直後、対象カードのタイトル/本文プレビューだけを直接書き換える。
-   * 編集中はappShell.js側でフォーカス保護のため#app全体の再描画を遅延させているが（IME対策）、
-   * それとは別に一覧の見た目だけは即時追従させたい（優先度5: 一覧タイトルのリアルタイム更新）ための
-   * ピンポイント更新。仮想スクロールで対象行が現在描画されていない場合は何もしない
-   * （範囲内に入れば通常のrender()で最新状態が出るため問題ない）。
-   * @param {string} noteId
-   * @param {{title:string, content:string, isPinned:boolean}} note
-   */
-  function patchCardPreview(noteId, note) {
-    var card = document.querySelector('.note-card[data-id="' + noteId + '"]');
-    if (!card) return;
-    var titleEl = card.querySelector('.note-title');
-    if (titleEl) {
-      titleEl.innerHTML = (note.isPinned ? '<span class="pin-mark" title="ピン留め中">📌</span>' : '') + formatTitleHtml(note.title);
-    }
-    var snippetText = formatSnippetHtml(note.content);
-    var snippetEl = card.querySelector('.note-snippet');
-    if (snippetText) {
-      if (snippetEl) {
-        snippetEl.innerHTML = snippetText;
-      } else if (titleEl) {
-        var div = document.createElement('div');
-        div.className = 'note-snippet';
-        div.innerHTML = snippetText;
-        card.querySelector('.note-card-top').insertAdjacentElement('afterend', div);
-      }
-    } else if (snippetEl) {
-      snippetEl.remove();
-    }
-  }
-
-  App.Render.noteCard = { render: render, patchCardPreview: patchCardPreview };
+  App.Render.noteCard = { render: render };
 })(window.MemoApp = window.MemoApp || {});

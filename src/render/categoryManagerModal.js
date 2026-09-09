@@ -31,7 +31,7 @@
       '  <div class="modal-panel">' +
       '    <div class="modal-header">' +
       '      <h3>カテゴリ管理</h3>' +
-      '      <button type="button" class="icon-btn" data-action="closeCategoryManager">✕</button>' +
+      '      <button type="button" class="icon-btn" data-action="closeCategoryManager" title="閉じる" aria-label="閉じる">✕</button>' +
       '    </div>' +
       '    <div class="modal-body">' +
       '      <div class="category-manager-new">' +

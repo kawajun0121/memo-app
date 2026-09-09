@@ -16,6 +16,8 @@
       noteId: note.id,
       title: note.title,
       content: note.content,
+      contentFormat: note.contentFormat,
+      plainText: note.plainText,
       categoryIds: note.categoryIds.slice(),
       typeId: note.typeId,
       createdAt: Date.now()

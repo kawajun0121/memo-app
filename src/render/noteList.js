@@ -67,11 +67,11 @@
       '  <div class="note-list-title-row">' +
       '    <h2 class="note-list-title">' + c.escapeHtml(ui.viewMeta.label) + '</h2>' +
       '    <span class="note-list-count">' + resultCount + '件</span>' +
-      '    <button type="button" class="btn-new-note-compact" data-action="createFullNote" title="新しいメモを作成" aria-label="新しいメモを作成">＋ 新規作成</button>' +
+      '    <button type="button" class="btn-new-note-compact" data-action="createFullNote" title="新しいメモを作成" aria-label="新しいメモを作成">' + c.icon('create', 16) + ' 新規作成</button>' +
       '  </div>' +
       '  <div class="note-list-controls">' +
       '    <input type="search" class="search-input" id="searchInput" placeholder="検索 (Ctrl+K)" value="' + c.escapeHtml(ui.filter.keyword) + '" data-role="search-input" />' +
-      '    <button type="button" class="btn-icon mobile-only" data-action="setMobileViewSearch" title="詳細な検索・絞り込み" aria-label="詳細な検索・絞り込み">🔍 絞り込み</button>' +
+      '    <button type="button" class="btn-icon mobile-only" data-action="setMobileViewSearch" title="詳細な検索・絞り込み" aria-label="詳細な検索・絞り込み">' + c.icon('search', 16) + ' 絞り込み</button>' +
       '    <button type="button" class="btn-icon" data-action="toggleMultiSelect" title="複数選択" aria-label="複数選択">' + (ui.multiSelectMode ? '選択終了' : '複数選択') + '</button>' +
       (ui.multiSelectMode ? '<button type="button" class="btn-icon" data-action="selectAllVisible" title="表示中のメモをすべて選択">すべて選択</button>' : '') +
       '    <div class="note-list-detail-controls">' +
@@ -96,6 +96,35 @@
     return '<option value="' + value + '"' + (current === value ? ' selected' : '') + '>' + label + '</option>';
   }
 
+  /** PC（768px以上）かどうか。空状態の案内文をCSSでの文字列すり替えではなく実際に出し分けるために使う。 */
+  function isWideViewport() {
+    return typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 768px)').matches;
+  }
+
+  function emptyStateHtml(totalScopeCount) {
+    if (totalScopeCount === 0) {
+      return isWideViewport()
+        ? '<div class="note-list-empty">メモがまだありません。右上の「新規作成」から最初のメモを作成できます。</div>'
+        : '<div class="note-list-empty">メモがまだありません。右下の＋ボタンから最初のメモを作成できます。</div>';
+    }
+    return '<div class="note-list-empty">条件に一致するメモがありません。検索条件を変更またはリセットしてください。</div>';
+  }
+
+  /** スクローラー内側（仮想スクロールの本体、または空状態）のHTML片を生成する。render()と syncLive() の両方から使う。 */
+  function scrollerInnerHtml(notes, ctx, scrollTop, viewportHeight) {
+    if (notes.length === 0) return emptyStateHtml(ctx.totalScopeCount);
+    var rowHeight = getRowHeight();
+    var range = computeVisibleRange(scrollTop, viewportHeight, notes.length, rowHeight);
+    var totalHeight = notes.length * rowHeight;
+    var offsetTop = range.start * rowHeight;
+    return '' +
+      '<div class="note-list-spacer" style="height:' + totalHeight + 'px">' +
+      '  <div class="note-list-rows" id="noteListRows" style="transform:translateY(' + offsetTop + 'px)">' +
+      renderRowsHtml(notes, range.start, range.end, ctx) +
+      '  </div>' +
+      '</div>';
+  }
+
   /**
    * @param {Note[]} notes - 既にフィルタ・ソート済みの配列
    * @param {{categoryNameById:Object, typeNameById:Object, selectedNoteId:string|null, multiSelectMode:boolean, selectedIds:string[]}} ctx
@@ -111,30 +140,12 @@
       lastViewKey = viewKey;
     }
 
-    var rowHeight = getRowHeight();
-    var viewportHeight = 600; // 初期HTML生成時は未マウントのため概算。mount()で実測して補正する。
-    var range = computeVisibleRange(lastScrollTop, viewportHeight, notes.length, rowHeight);
-    var totalHeight = notes.length * rowHeight;
-    var offsetTop = range.start * rowHeight;
-
-    var emptyState = '';
-    if (notes.length === 0) {
-      emptyState = (ctx.totalScopeCount === 0)
-        ? '<div class="note-list-empty">メモがまだありません。右下の＋ボタンから最初のメモを作成できます。</div>'
-        : '<div class="note-list-empty">条件に一致するメモがありません。検索条件を変更またはリセットしてください。</div>';
-    }
-
     return '' +
       '<div class="note-list">' +
       renderToolbar(ui, notes.length) +
       App.Render.bulkActionBar.render(ui) +
       '  <div class="note-list-scroller" id="noteListScroller">' +
-      (notes.length > 0 ?
-        '    <div class="note-list-spacer" style="height:' + totalHeight + 'px">' +
-        '      <div class="note-list-rows" id="noteListRows" style="transform:translateY(' + offsetTop + 'px)">' +
-        renderRowsHtml(notes, range.start, range.end, ctx) +
-        '      </div>' +
-        '    </div>' : emptyState) +
+      scrollerInnerHtml(notes, ctx, lastScrollTop, 600) + // 初期HTML生成時は未マウントのため600pxで概算。mount()で実測して補正する。
       '  </div>' +
       '</div>';
   }
@@ -149,6 +160,23 @@
     rowsEl.style.transform = 'translateY(' + offsetTop + 'px)';
     rowsEl.innerHTML = renderRowsHtml(currentNotesCache, range.start, range.end, currentCtxCache);
     lastScrollTop = scroller.scrollTop;
+  }
+
+  /**
+   * 一覧の外（メモ編集画面）で何かが変わった際に、一覧側だけをその場で最新状態へ同期する。
+   * #app全体の再描画（appShell.jsのrenderAll）はIME保護のため編集中は遅延されるが、
+   * .note-list-scrollerは編集中のフォーカス対象（本文入力欄）と無関係なDOMのため、
+   * ここだけ独立して即時更新して問題ない。新規メモの一覧追加・件数即時反映（優先度1）の要。
+   * @param {Note[]} notes @param {Object} listCtx
+   */
+  function syncLive(notes, listCtx) {
+    currentNotesCache = notes;
+    currentCtxCache = listCtx;
+    var scroller = document.getElementById('noteListScroller');
+    if (!scroller) return; // 一覧画面が現在表示されていない（モバイルで編集画面表示中等）→ 次回の通常描画で自然に反映される
+    var countEl = document.querySelector('.note-list-count');
+    if (countEl) countEl.textContent = notes.length + '件';
+    scroller.innerHTML = scrollerInnerHtml(notes, listCtx, scroller.scrollTop, scroller.clientHeight || 600);
   }
 
   var SWIPE_INTENT_THRESHOLD = 8; // これ未満の移動はタップとみなしスワイプ扱いにしない
@@ -262,5 +290,5 @@
     patchVisibleRows();
   }
 
-  App.Render.noteList = { render: render, mount: mount };
+  App.Render.noteList = { render: render, mount: mount, syncLive: syncLive };
 })(window.MemoApp = window.MemoApp || {});

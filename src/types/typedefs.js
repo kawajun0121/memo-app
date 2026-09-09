@@ -7,8 +7,13 @@
 /**
  * @typedef {Object} Note
  * @property {string} id
- * @property {string} title - タイトル未入力の場合は空文字
- * @property {string} content - 本文（クイックメモはここだけでもよい）
+ * @property {string} title - タイトル未入力の場合は空文字（文書内の最初の有効なブロックから自動導出）
+ * @property {string} content - 本文。contentFormatが'json'の場合はTiptap(ProseMirror)のJSON文書を
+ *   JSON.stringify()した文字列。contentFormatが未設定（旧データ）の場合はプレーンテキストそのもの。
+ * @property {'json'|undefined} contentFormat - 'json'=新形式（リッチテキスト）。未設定=旧プレーン
+ *   テキスト形式として扱う（後方互換。既存メモは開いて実際に編集・保存されるまで変換されない）。
+ * @property {string|undefined} plainText - 検索・一覧プレビュー用に保存時点で導出したプレーンテキスト
+ *   （contentFormat='json'のときのみ意味を持つ。旧データでは未設定＝各所でcontentへフォールバックする）。
  * @property {string[]} categoryIds - カテゴリID配列（0件 = 未分類）
  * @property {string|null} typeId - メモの種類ID（null可）
  * @property {boolean} isFavorite
@@ -42,6 +47,8 @@
  * @property {string} noteId
  * @property {string} title
  * @property {string} content
+ * @property {'json'|undefined} contentFormat
+ * @property {string|undefined} plainText
  * @property {string[]} categoryIds
  * @property {string|null} typeId
  * @property {number} createdAt - このバージョンが保存された日時

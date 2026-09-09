@@ -20,6 +20,9 @@
       body = '<div class="modal-empty">まだ編集履歴はありません（一定の変更があると記録されます）</div>';
     } else {
       body = hs.entries.map(function (entry) {
+        // 新形式(json)のcontentはJSON文字列（人間が読める文章ではない）なので、
+        // プレビューには保存時点のplainTextを使う。旧プレーン形式はcontentがそのまま使える。
+        var previewSource = entry.contentFormat === 'json' ? (entry.plainText || '') : (entry.content || '');
         return '' +
           '<div class="history-entry">' +
           '  <div class="history-entry-head">' +
@@ -27,7 +30,7 @@
           '    <button type="button" class="btn-text" data-action="restoreHistory" data-id="' + entry.id + '">この状態に復元</button>' +
           '  </div>' +
           '  <div class="history-entry-title">' + (entry.title ? c.escapeHtml(entry.title) : '<span class="note-title-empty">無題</span>') + '</div>' +
-          '  <div class="history-entry-snippet">' + c.escapeHtml(c.snippet(entry.content, 160)) + '</div>' +
+          '  <div class="history-entry-snippet">' + c.escapeHtml(c.snippet(previewSource, 160)) + '</div>' +
           '</div>';
       }).join('');
     }
@@ -37,7 +40,7 @@
       '  <div class="modal-panel">' +
       '    <div class="modal-header">' +
       '      <h3>編集履歴</h3>' +
-      '      <button type="button" class="icon-btn" data-action="closeHistoryPanel">✕</button>' +
+      '      <button type="button" class="icon-btn" data-action="closeHistoryPanel" title="閉じる" aria-label="閉じる">✕</button>' +
       '    </div>' +
       '    <div class="modal-body">' + body + '</div>' +
       '  </div>' +

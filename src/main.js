@@ -215,6 +215,91 @@
   };
   App.Actions['closeEditorMenu'] = function () { App.Store.uiStore.closePanel('editorMenuOpen'); };
 
+  // ---------- リッチテキストツールバー（エディタに直接コマンドを送るだけなので、
+  // フォーカスは失われない＝flushPending/再描画は不要。noteEditor.js側でmousedownによる
+  // フォーカス移動そのものを止めている） ----------
+
+  /** @param {(editor: Object) => void} fn */
+  function withEditor(fn) {
+    return function () {
+      var editor = App.Render.noteEditor.getCurrentEditor();
+      if (editor) fn(editor);
+    };
+  }
+
+  App.Actions['richToggleHeading1'] = withEditor(function (e) { e.chain().focus().toggleHeading({ level: 1 }).run(); });
+  App.Actions['richToggleHeading2'] = withEditor(function (e) { e.chain().focus().toggleHeading({ level: 2 }).run(); });
+  App.Actions['richToggleBold'] = withEditor(function (e) { e.chain().focus().toggleBold().run(); });
+  App.Actions['richToggleBulletList'] = withEditor(function (e) { e.chain().focus().toggleBulletList().run(); });
+  App.Actions['richToggleOrderedList'] = withEditor(function (e) { e.chain().focus().toggleOrderedList().run(); });
+  App.Actions['richToggleTaskList'] = withEditor(function (e) { e.chain().focus().toggleTaskList().run(); });
+  App.Actions['richClearFormat'] = withEditor(function (e) { e.chain().focus().unsetAllMarks().clearNodes().run(); });
+  App.Actions['richUndo'] = withEditor(function (e) { e.chain().focus().undo().run(); });
+  App.Actions['richRedo'] = withEditor(function (e) { e.chain().focus().redo().run(); });
+
+  // ---------- 文字色（限定6色。項目2） ----------
+
+  App.Actions['openColorPicker'] = function () {
+    App.Render.noteEditor.flushPending();
+    App.Store.uiStore.openPanel('colorPickerOpen');
+  };
+  App.Actions['closeColorPicker'] = function () { App.Store.uiStore.closePanel('colorPickerOpen'); };
+  App.Actions['applyTextColor'] = function (d) {
+    var editor = App.Render.noteEditor.getCurrentEditor();
+    if (editor) editor.chain().focus().setTextColor(d.id || null).run();
+    App.Store.uiStore.closePanel('colorPickerOpen');
+  };
+
+  // ---------- リンク（項目5） ----------
+
+  App.Actions['openLinkPicker'] = function () {
+    App.Render.noteEditor.flushPending();
+    var editor = App.Render.noteEditor.getCurrentEditor();
+    if (!editor) return;
+    var attrs = editor.getAttributes('link');
+    var sel = editor.state.selection;
+    var selectedText = editor.state.doc.textBetween(sel.from, sel.to, '');
+    App.Store.uiStore.openPanel('linkPickerOpen', {
+      linkPickerText: selectedText || '',
+      linkPickerUrl: attrs.href || '',
+      linkPickerHasExistingLink: !!attrs.href
+    });
+  };
+  App.Actions['closeLinkPicker'] = function () { App.Store.uiStore.closePanel('linkPickerOpen'); };
+
+  App.Actions['saveLinkPicker'] = function () {
+    var editor = App.Render.noteEditor.getCurrentEditor();
+    if (!editor) return;
+    var urlInput = document.getElementById('linkPickerUrlInput');
+    var textInput = document.getElementById('linkPickerTextInput');
+    var url = urlInput ? urlInput.value.trim() : '';
+    var text = textInput ? textInput.value : '';
+    if (!url) { window.alert('URLを入力してください'); return; }
+    if (!window.MemoApp.RichEditor || !window.MemoApp.RichEditor.isSafeUrl(url)) {
+      window.alert('このURLは使用できません（http・https・mailto・telのみ利用できます）');
+      return;
+    }
+    var sel = editor.state.selection;
+    var chain = editor.chain().focus();
+    if (sel.from === sel.to) {
+      // カーソルのみ（範囲選択なし）: 新しいテキストを挿入し、それにリンクを付与する
+      chain.insertContent({ type: 'text', text: text || url, marks: [{ type: 'link', attrs: { href: url } }] });
+    } else if (text && text !== editor.state.doc.textBetween(sel.from, sel.to, '')) {
+      // 表示文字が選択範囲の元のテキストから変更された: 置き換えつつリンクを付与する
+      chain.insertContent({ type: 'text', text: text, marks: [{ type: 'link', attrs: { href: url } }] });
+    } else {
+      chain.setLink({ href: url });
+    }
+    chain.run();
+    App.Store.uiStore.closePanel('linkPickerOpen');
+  };
+
+  App.Actions['removeLinkPicker'] = function () {
+    var editor = App.Render.noteEditor.getCurrentEditor();
+    if (editor) editor.chain().focus().unsetLink().run();
+    App.Store.uiStore.closePanel('linkPickerOpen');
+  };
+
   App.Actions['toggleCategoryOnNote'] = function (d) {
     var note = currentEditingNote();
     if (!note) return;
@@ -384,10 +469,13 @@
     App.Store.notesStore.update(entry.noteId, {
       title: entry.title,
       content: entry.content,
+      contentFormat: entry.contentFormat,
+      plainText: entry.plainText,
       categoryIds: entry.categoryIds.slice(),
       typeId: entry.typeId
     }).then(function () {
       App.Store.historyStore.loadForNote(entry.noteId);
+      App.Render.appShell.syncListLive();
     });
   };
 
@@ -463,7 +551,7 @@
   document.addEventListener('keydown', function (evt) {
     if (evt.key !== 'Enter') return;
     if (!evt.target || !evt.target.classList || !evt.target.classList.contains('enter-submits')) return;
-    var scope = evt.target.closest('.modal-panel') || evt.target.closest('.category-manager-new');
+    var scope = evt.target.closest('.modal-panel') || evt.target.closest('.sheet-panel') || evt.target.closest('.category-manager-new');
     if (!scope) return;
     var btn = scope.querySelector('.btn-primary') || scope.querySelector('[data-action="createCategoryFromManager"]');
     if (btn) {

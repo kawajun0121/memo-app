@@ -22,7 +22,7 @@
       '  <div class="modal-panel modal-panel--small">' +
       '    <div class="modal-header">' +
       '      <h3>' + title + '</h3>' +
-      '      <button type="button" class="icon-btn" data-action="closeSaveViewModal">✕</button>' +
+      '      <button type="button" class="icon-btn" data-action="closeSaveViewModal" title="閉じる" aria-label="閉じる">✕</button>' +
       '    </div>' +
       '    <div class="modal-body">' +
       '      <input type="text" id="savedViewNameInput" class="saved-view-name-input enter-submits" placeholder="ビュー名（例: 民泊のアイデア）" value="' + c.escapeHtml(nameValue) + '" />' +
