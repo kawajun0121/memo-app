@@ -279,11 +279,21 @@
   /** @param {Note} note @returns {Object} Tiptapへ渡す初期JSON文書。新形式(json)はそのまま、
    *  旧プレーン形式（contentFormat未設定）は1行1段落へ変換して「表示だけ」する
    *  （実際に保存されるまでnote.content/contentFormat自体は書き換えない）。 */
+  /** @param {string} title @param {string} content 旧プレーン形式（リッチテキスト移行前）は
+   *  title＝1行目、content＝2行目以降というように別フィールドで保持しており、
+   *  contentだけにはタイトルの文字列が含まれていない。1つのテキストへ結合してから
+   *  Tiptap文書へ変換する必要がある（結合しないとタイトル行が表示されない不具合になる）。 */
+  function joinLegacyTitleAndContent(title, content) {
+    if (!title) return content || '';
+    if (!content) return title;
+    return title + '\n' + content;
+  }
+
   function contentJSONForNote(note) {
     if (note.contentFormat === 'json' && note.content) {
       try { return JSON.parse(note.content); } catch (e) { /* 壊れている場合は下のフォールバックへ */ }
     }
-    return window.MemoApp.RichEditor.docFromPlainText(note.content || '');
+    return window.MemoApp.RichEditor.docFromPlainText(joinLegacyTitleAndContent(note.title, note.content));
   }
 
   /** @param {Object} editor Tiptap Editor @returns {{title:string, content:string, contentFormat:string, plainText:string}} */
