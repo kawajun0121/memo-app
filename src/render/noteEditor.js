@@ -32,6 +32,13 @@
   /** @type {{noteId: string, getPatch: Function, isComposing: Function, flush: Function, cancel: Function, trigger: Function}|null} */
   var pending = null;
   var currentEditor = null;
+  var currentEditorNoteId = null;
+
+  /** リンク・文字色シートを開いた時点の選択範囲を一時的に覚えておく（不具合修正）。
+   *  シートを開く操作そのものでフォーカスが動いても、保存/適用時にはここへ退避した
+   *  座標を使うため、選択範囲が失われない。
+   *  @type {{kind:'link'|'color', noteId:string, from:number, to:number, selectedText:string, existingHref:string, isEmpty:boolean}|null} */
+  var savedSelection = null;
 
   function flushPending() {
     if (pending) pending.flush();
@@ -39,6 +46,58 @@
 
   function getCurrentEditor() {
     return currentEditor;
+  }
+
+  function getCurrentNoteId() {
+    return currentEditorNoteId;
+  }
+
+  /** @param {'link'|'color'} kind @returns {Object|null} 現在の選択範囲を退避して返す */
+  function captureSelection(kind) {
+    if (!currentEditor || !currentEditorNoteId) return null;
+    var sel = currentEditor.state.selection;
+    var text = currentEditor.state.doc.textBetween(sel.from, sel.to, '');
+    var linkAttrs = currentEditor.getAttributes('link');
+    savedSelection = {
+      kind: kind,
+      noteId: currentEditorNoteId,
+      from: sel.from,
+      to: sel.to,
+      selectedText: text,
+      existingHref: linkAttrs.href || '',
+      isEmpty: sel.from === sel.to
+    };
+    return savedSelection;
+  }
+
+  /** リンク用の退避。カーソルが既存リンクの内側にある場合は、リンク全体を選択範囲として
+   *  扱う（extendMarkRange）。これによりURL/表示文字の編集対象がリンク全体になる。 */
+  function captureSelectionForLink() {
+    if (!currentEditor) return null;
+    if (currentEditor.state.selection.empty && currentEditor.isActive('link')) {
+      currentEditor.chain().extendMarkRange('link').run();
+    }
+    return captureSelection('link');
+  }
+
+  function getSavedSelection() {
+    return savedSelection;
+  }
+
+  function clearSavedSelection() {
+    savedSelection = null;
+  }
+
+  /** 退避した座標を、現在の文書サイズの範囲内へ安全に補正する（不具合修正:項目7）。
+   *  対象メモが変わっていた場合や、エディタが存在しない場合はnullを返す。
+   *  @param {'link'|'color'} kind @returns {{from:number, to:number}|null} */
+  function resolveSavedRange(kind) {
+    if (!currentEditor || !savedSelection || savedSelection.kind !== kind) return null;
+    if (savedSelection.noteId !== currentEditorNoteId) return null; // 別のメモへ移動していた
+    var maxPos = currentEditor.state.doc.content.size;
+    var from = Math.max(0, Math.min(savedSelection.from, maxPos));
+    var to = Math.max(from, Math.min(savedSelection.to, maxPos));
+    return { from: from, to: to };
   }
 
   function statusSyncSuffix() {
@@ -261,6 +320,8 @@
       try { currentEditor.destroy(); } catch (e) { /* 無視 */ }
     }
     currentEditor = null;
+    currentEditorNoteId = null;
+    savedSelection = null; // 別メモへの切り替え等でエディタが破棄されたら、古い選択範囲は使わせない
   }
 
   function mount(note) {
@@ -313,15 +374,19 @@
       onSelectionUpdate: function () { refreshToolbarActiveStates(currentEditor); }
     });
     currentEditor = editor;
+    currentEditorNoteId = note.id;
     editor.on('blur', flushDeferredRenderIfAny);
     refreshToolbarActiveStates(editor);
 
-    // ツールバーのボタンをmousedownで押した際、contenteditableからフォーカスが移って
-    // #app全体が再描画され選択範囲が失われることがないよう、既定のフォーカス移動を止める
-    // （clickイベント自体は止めないため、render/common.jsのdata-action委譲は通常どおり動く）。
+    // ツールバーのボタンを押した際、contenteditableからフォーカスが移って選択範囲が
+    // 失われることがないよう、既定のフォーカス移動そのものを止める（clickイベント自体は
+    // 止めないため、render/common.jsのdata-action委譲は通常どおり動く）。
+    // iPhone Safariでのタップも正しく扱うため、対応していればPointer Eventsを使う
+    // （mousedownとの重複登録はしない＝1回のタップで二重発火しない）。
     var toolbar = document.getElementById('richToolbar');
     if (toolbar) {
-      toolbar.addEventListener('mousedown', function (evt) {
+      var pointerEventName = window.PointerEvent ? 'pointerdown' : 'mousedown';
+      toolbar.addEventListener(pointerEventName, function (evt) {
         if (evt.target.closest('[data-action]')) evt.preventDefault();
       });
     }
@@ -332,6 +397,12 @@
     mount: mount,
     flushPending: flushPending,
     getCurrentEditor: getCurrentEditor,
+    getCurrentNoteId: getCurrentNoteId,
+    captureSelection: captureSelection,
+    captureSelectionForLink: captureSelectionForLink,
+    getSavedSelection: getSavedSelection,
+    clearSavedSelection: clearSavedSelection,
+    resolveSavedRange: resolveSavedRange,
     AUTOSAVE_DELAY_MS: AUTOSAVE_DELAY_MS
   };
 })(window.MemoApp = window.MemoApp || {});

@@ -20,6 +20,16 @@
  別のメモやビューに切り替える操作（selectNote等）は開いているメモIDが変わるためこの対象外になり、
  通常どおり即座に再描画される。保留した再描画は、その入力欄からフォーカスが外れた時
  （render/noteEditor.jsのblurハンドラ）に改めてまとめて実行する。
+
+ 【#appを2つの独立した領域に分離する】上記の再描画保留は「エディタ本体（.note-content-editor）を
+ 壊さない」ことが目的だが、以前はカテゴリ/種類/リンク/文字色などのモーダル・ボトムシート（本文欄を
+ 含まない、完全に独立したオーバーレイ）まで同じ#app全体の再描画に巻き込まれていたため、
+ エディタにフォーカスが残っている間はモーダル自体の表示まで遅延してしまう不具合があった
+ （リンク・文字色ツールバーを押しても検索欄など別の場所を触るまで設定画面が出ない）。
+ これを解消するため、#appの直下を「appMain」（サイドバー・一覧・エディタ・検索画面・下部ナビ等。
+ 従来どおりフォーカス保護の対象）と「appOverlay」（履歴・カテゴリ管理・AI提案・スマートビュー保存・
+ 設定・各種ボトムシート等。本文欄を含まないため常に即時更新してよい）の2つの永続コンテナへ分離した。
+ appOverlayは#app全体の再描画とは切り離し、store変化のたびに毎回即時に描画する。
 */
 (function (App) {
   'use strict';
@@ -147,16 +157,22 @@
     }
   }
 
-  function renderAll() {
-    var pendingUi = App.Store.uiStore.getState();
-    if (isEditingCurrentNoteField(currentNoteKey(pendingUi))) {
-      renderPendingDeferred = true;
-      return;
+  /** #appの直下に appMain / appOverlay の2つの永続コンテナを用意する（初回のみ生成、以降は
+   *  それぞれのinnerHTMLだけを差し替える。コンテナ要素自体は作り直さない）。 */
+  function ensureRegions(container) {
+    var main = document.getElementById('appMain');
+    var overlay = document.getElementById('appOverlay');
+    if (!main || !overlay) {
+      container.innerHTML = '<div id="appMain"></div><div id="appOverlay"></div>';
+      main = document.getElementById('appMain');
+      overlay = document.getElementById('appOverlay');
     }
-    renderPendingDeferred = false;
-    var container = document.getElementById('app');
+    return { main: main, overlay: overlay };
+  }
+
+  /** サイドバー・一覧・エディタ・検索画面・下部ナビ等。編集中のフォーカス保護の対象。 */
+  function renderMainRegion(container, ui) {
     withUiStatePreserved(container, function () {
-      var ui = App.Store.uiStore.getState();
       var computed = computeListState(ui);
       var notes = computed.notes;
       var listCtx = computed.listCtx;
@@ -174,17 +190,44 @@
         '</div>' +
         (ui.mobileView === 'list' ? '<button type="button" class="fab-create mobile-only" data-action="createFullNote" title="新しいメモを作成" aria-label="新しいメモを作成">' + App.Render.common.icon('create', 26) + '</button>' : '') +
         App.Render.bottomNav.render(ui) +
-        App.Render.toast.render(ui) +
+        App.Render.toast.render(ui);
+
+      App.Render.noteList.mount();
+      App.Render.noteEditor.mount(selectedNote);
+    });
+  }
+
+  /** 履歴・カテゴリ管理・AI提案・スマートビュー保存・設定・各種ボトムシート（カテゴリ/種類/
+   *  その他メニュー/リンク/文字色等）。本文欄を含まない完全に独立したオーバーレイのため、
+   *  エディタ編集中かどうかに関わらず常に即時描画する（不具合修正: リンク/文字色シートが
+   *  検索欄など別の場所を触るまで表示されなかった問題）。 */
+  function renderOverlayRegion(container, ui) {
+    withUiStatePreserved(container, function () {
+      var selectedNote = ui.draftNote || (ui.selectedNoteId ? App.Store.notesStore.getById(ui.selectedNoteId) : null);
+      container.innerHTML = '' +
         App.Render.historyPanel.render(ui) +
         App.Render.categoryManagerModal.render(ui) +
         App.Render.aiSuggestPanel.render(ui) +
         App.Render.savedViewModal.render(ui) +
         App.Render.settingsModal.render(ui) +
         App.Render.sheet.renderAll(ui, selectedNote);
-
-      App.Render.noteList.mount();
-      App.Render.noteEditor.mount(selectedNote);
     });
+  }
+
+  function renderAll() {
+    var container = document.getElementById('app');
+    var regions = ensureRegions(container);
+    var ui = App.Store.uiStore.getState();
+
+    // オーバーレイは本文欄を含まないため、エディタの編集状態に関わらず常に即時更新する。
+    renderOverlayRegion(regions.overlay, ui);
+
+    if (isEditingCurrentNoteField(currentNoteKey(ui))) {
+      renderPendingDeferred = true;
+      return;
+    }
+    renderPendingDeferred = false;
+    renderMainRegion(regions.main, ui);
   }
 
   function init() {

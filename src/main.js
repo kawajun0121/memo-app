@@ -216,8 +216,8 @@
   App.Actions['closeEditorMenu'] = function () { App.Store.uiStore.closePanel('editorMenuOpen'); };
 
   // ---------- リッチテキストツールバー（エディタに直接コマンドを送るだけなので、
-  // フォーカスは失われない＝flushPending/再描画は不要。noteEditor.js側でmousedownによる
-  // フォーカス移動そのものを止めている） ----------
+  // フォーカスは失われない＝flushPending/再描画は不要。noteEditor.js側でpointerdown
+  // （非対応環境はmousedown）によりフォーカス移動そのものを止めている） ----------
 
   /** @param {(editor: Object) => void} fn */
   function withEditor(fn) {
@@ -238,38 +238,78 @@
   App.Actions['richRedo'] = withEditor(function (e) { e.chain().focus().redo().run(); });
 
   // ---------- 文字色（限定6色。項目2） ----------
+  // 【不具合修正】以前は適用時点のeditor.state.selectionを直接使っていたため、シートを開く
+  // 操作でフォーカスが動くと選択範囲が失われ、色が反映されないことがあった。シートを開いた
+  // 時点でnoteEditor.js側に選択範囲を退避し、適用時はその座標へ明示的に選択を復元してから
+  // コマンドを実行する。
 
   App.Actions['openColorPicker'] = function () {
+    var editor = App.Render.noteEditor.getCurrentEditor();
+    if (!editor) return;
     App.Render.noteEditor.flushPending();
+    App.Render.noteEditor.captureSelection('color');
     App.Store.uiStore.openPanel('colorPickerOpen');
   };
-  App.Actions['closeColorPicker'] = function () { App.Store.uiStore.closePanel('colorPickerOpen'); };
+
+  App.Actions['closeColorPicker'] = function () {
+    restoreSavedSelectionIfAny('color');
+    App.Store.uiStore.closePanel('colorPickerOpen');
+    App.Render.noteEditor.clearSavedSelection();
+  };
+
   App.Actions['applyTextColor'] = function (d) {
     var editor = App.Render.noteEditor.getCurrentEditor();
-    if (editor) editor.chain().focus().setTextColor(d.id || null).run();
+    if (editor) {
+      var range = App.Render.noteEditor.resolveSavedRange('color');
+      var chain = editor.chain().focus();
+      if (range) chain.setTextSelection(range);
+      chain.setTextColor(d.id || null).run();
+    }
     App.Store.uiStore.closePanel('colorPickerOpen');
+    App.Render.noteEditor.clearSavedSelection();
   };
 
   // ---------- リンク（項目5） ----------
+  // 【不具合修正】文字色と同様、リンクの保存・解除も「シートを開いた時点で退避した選択範囲」を
+  // 使う。カーソルが既存リンクの内側にある場合はcaptureSelectionForLink()がリンク全体を
+  // 選択範囲として扱うため、URL/表示文字の変更・解除が正しくリンク全体に効く。
+
+  /** シートを閉じる際、可能であれば退避しておいた選択範囲をエディタへ復元する（キャンセル時等）。 */
+  function restoreSavedSelectionIfAny(kind) {
+    var editor = App.Render.noteEditor.getCurrentEditor();
+    var range = App.Render.noteEditor.resolveSavedRange(kind);
+    if (editor && range) {
+      try { editor.chain().focus().setTextSelection(range).run(); } catch (e) { /* 無視 */ }
+    }
+  }
 
   App.Actions['openLinkPicker'] = function () {
-    App.Render.noteEditor.flushPending();
     var editor = App.Render.noteEditor.getCurrentEditor();
     if (!editor) return;
-    var attrs = editor.getAttributes('link');
-    var sel = editor.state.selection;
-    var selectedText = editor.state.doc.textBetween(sel.from, sel.to, '');
+    App.Render.noteEditor.flushPending();
+    var saved = App.Render.noteEditor.captureSelectionForLink();
+    if (!saved) return;
     App.Store.uiStore.openPanel('linkPickerOpen', {
-      linkPickerText: selectedText || '',
-      linkPickerUrl: attrs.href || '',
-      linkPickerHasExistingLink: !!attrs.href
+      linkPickerText: saved.selectedText || '',
+      linkPickerUrl: saved.existingHref || '',
+      linkPickerHasExistingLink: !!saved.existingHref
     });
   };
-  App.Actions['closeLinkPicker'] = function () { App.Store.uiStore.closePanel('linkPickerOpen'); };
+
+  App.Actions['closeLinkPicker'] = function () {
+    restoreSavedSelectionIfAny('link');
+    App.Store.uiStore.closePanel('linkPickerOpen');
+    App.Render.noteEditor.clearSavedSelection();
+  };
 
   App.Actions['saveLinkPicker'] = function () {
     var editor = App.Render.noteEditor.getCurrentEditor();
-    if (!editor) return;
+    var range = App.Render.noteEditor.resolveSavedRange('link');
+    if (!editor || !range) {
+      App.Store.uiStore.closePanel('linkPickerOpen');
+      App.Render.noteEditor.clearSavedSelection();
+      return;
+    }
     var urlInput = document.getElementById('linkPickerUrlInput');
     var textInput = document.getElementById('linkPickerTextInput');
     var url = urlInput ? urlInput.value.trim() : '';
@@ -279,12 +319,13 @@
       window.alert('このURLは使用できません（http・https・mailto・telのみ利用できます）');
       return;
     }
-    var sel = editor.state.selection;
-    var chain = editor.chain().focus();
-    if (sel.from === sel.to) {
-      // カーソルのみ（範囲選択なし）: 新しいテキストを挿入し、それにリンクを付与する
+    var saved = App.Render.noteEditor.getSavedSelection();
+    var originalSelectedText = saved ? saved.selectedText : '';
+    var chain = editor.chain().focus().setTextSelection(range);
+    if (range.from === range.to) {
+      // カーソルのみ（範囲選択なし）: 保存しておいたカーソル位置へ新しいテキストを挿入し、それにリンクを付与する
       chain.insertContent({ type: 'text', text: text || url, marks: [{ type: 'link', attrs: { href: url } }] });
-    } else if (text && text !== editor.state.doc.textBetween(sel.from, sel.to, '')) {
+    } else if (text && text !== originalSelectedText) {
       // 表示文字が選択範囲の元のテキストから変更された: 置き換えつつリンクを付与する
       chain.insertContent({ type: 'text', text: text, marks: [{ type: 'link', attrs: { href: url } }] });
     } else {
@@ -292,12 +333,17 @@
     }
     chain.run();
     App.Store.uiStore.closePanel('linkPickerOpen');
+    App.Render.noteEditor.clearSavedSelection();
   };
 
   App.Actions['removeLinkPicker'] = function () {
     var editor = App.Render.noteEditor.getCurrentEditor();
-    if (editor) editor.chain().focus().unsetLink().run();
+    var range = App.Render.noteEditor.resolveSavedRange('link');
+    if (editor && range) {
+      editor.chain().focus().setTextSelection(range).unsetLink().run();
+    }
     App.Store.uiStore.closePanel('linkPickerOpen');
+    App.Render.noteEditor.clearSavedSelection();
   };
 
   App.Actions['toggleCategoryOnNote'] = function (d) {

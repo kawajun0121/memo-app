@@ -96,6 +96,21 @@ body {
   padding-right: env(safe-area-inset-right);
 }
 
+/* #appの直下に置く2つの永続コンテナ（render/appShell.js参照）。appMainは従来#appが担っていた
+   縦方向レイアウトをそのまま引き継ぐ。appOverlayはposition:fixedのモーダル/シートしか
+   子に持たないため、レイアウトボックスを生成しない（display:contents）ことで
+   #appのflexレイアウトに一切影響を与えない。 */
+#appMain {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+#appOverlay {
+  display: contents;
+}
+
 button {
   font-family: inherit;
   font-size: inherit;
