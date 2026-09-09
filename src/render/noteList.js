@@ -55,7 +55,8 @@
         isSelected: note.id === ctx.selectedNoteId,
         multiSelectMode: ctx.multiSelectMode,
         isChecked: ctx.selectedIds.indexOf(note.id) !== -1,
-        isDeleteRevealed: note.id === ctx.revealedDeleteNoteId
+        isDeleteRevealed: note.id === ctx.revealedDeleteNoteId,
+        keyword: ctx.keyword
       });
     }).join('');
   }

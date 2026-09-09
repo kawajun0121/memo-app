@@ -30,21 +30,55 @@
     return flat.slice(0, maxLen) + '…';
   }
 
-  /** 一覧カードのプレビュー用。元の改行を保ったまま先頭の数行ぶんを返す（買い物リストのような
+  /** 一覧カードのプレビュー用。元の改行を保ったまま数行ぶんを返す（買い物リストのような
    *  箇条書きが1行に潰れて読めなくならないようにするため）。空行は詰める。実際に何行表示するかは
    *  CSS側（--note-snippet-lines）で制限するので、ここでは折り返しを考慮して少し多めに残す。
-   *  @param {string} text @param {number} maxLen @returns {string} */
-  function snippetLines(text, maxLen) {
+   *
+   *  keywordが指定された場合は、先頭からではなく「その語を含む最初の行」から返す。
+   *  検索結果の一覧で、ヒットしたはずの語がプレビューに出てこない（長いメモで一致箇所が
+   *  4行目以降にある）と、なぜヒットしたのか分からないため。
+   *  @param {string} text @param {number} maxLen @param {string} [keyword] @returns {string} */
+  function snippetLines(text, maxLen, keyword) {
     if (!text) return '';
     var lines = String(text).split('\n');
+    var startIndex = 0;
+    if (keyword) {
+      var q = String(keyword).toLowerCase();
+      for (var s = 0; s < lines.length; s++) {
+        if (lines[s].toLowerCase().indexOf(q) !== -1) { startIndex = s; break; }
+      }
+    }
     var kept = [];
-    for (var i = 0; i < lines.length && kept.length < 8; i++) {
+    for (var i = startIndex; i < lines.length && kept.length < 8; i++) {
       var line = lines[i].replace(/[ \t　]+/g, ' ').trim();
       if (line) kept.push(line);
     }
     var joined = kept.join('\n');
     if (joined.length <= maxLen) return joined;
     return joined.slice(0, maxLen) + '…';
+  }
+
+  /** テキストをHTMLエスケープしつつ、keywordに一致する部分だけ<mark>で囲む。
+   *  一致判定はlogic/filtering.jsのmatchesKeywordと同じ「小文字化した単純部分一致」に揃えてあるため、
+   *  検索でヒットした語とハイライトされる語が必ず一致する。
+   *  エスケープ後の文字列を検索すると&amp;等の実体参照を誤ってまたいでしまうので、
+   *  必ず「元テキストで位置を探す→切り出した断片を個別にエスケープ」の順で組み立てる。
+   *  @param {string} text @param {string} [keyword] @returns {string} HTML */
+  function highlightHtml(text, keyword) {
+    var src = text === null || text === undefined ? '' : String(text);
+    var q = keyword ? String(keyword).toLowerCase() : '';
+    if (!q) return escapeHtml(src);
+    var lower = src.toLowerCase();
+    var out = '';
+    var from = 0;
+    while (true) {
+      var idx = lower.indexOf(q, from);
+      if (idx === -1) { out += escapeHtml(src.slice(from)); break; }
+      out += escapeHtml(src.slice(from, idx)) +
+        '<mark class="search-hit">' + escapeHtml(src.slice(idx, idx + q.length)) + '</mark>';
+      from = idx + q.length;
+    }
+    return out;
   }
 
   function iconButton(action, id, icon, title, extraAttrs, activeClass) {
@@ -128,6 +162,7 @@
     escapeHtml: escapeHtml,
     snippet: snippet,
     snippetLines: snippetLines,
+    highlightHtml: highlightHtml,
     iconButton: iconButton,
     categoryChip: categoryChip,
     typeBadge: typeBadge,

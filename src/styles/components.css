@@ -306,6 +306,16 @@
   line-clamp: var(--note-snippet-lines);
 }
 
+/* 検索キーワードの一致箇所。ブラウザ既定の<mark>は黄色地＋黒文字の固定色でダークモードだと浮くため、
+   配色トークンで上書きして明暗どちらでも読めるようにする。 */
+.search-hit {
+  background: var(--color-accent-bg);
+  color: var(--color-accent);
+  font-weight: 600;
+  border-radius: 3px;
+  padding: 0 1px;
+}
+
 .note-card-bottom {
   display: flex;
   align-items: center;

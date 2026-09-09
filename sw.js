@@ -19,7 +19,7 @@
 */
 'use strict';
 
-var CACHE_NAME = 'memo-app-cache-v11';
+var CACHE_NAME = 'memo-app-cache-v12';
 var APP_SHELL_URLS = [
   './',
   './index.html',

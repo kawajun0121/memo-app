@@ -109,6 +109,8 @@
       multiSelectMode: ui.multiSelectMode,
       selectedIds: ui.selectedIds,
       revealedDeleteNoteId: ui.revealedDeleteNoteId,
+      // 検索中のカードで、ヒットした語をハイライトし、その語を含む行からプレビューを始めるために使う
+      keyword: ui.filter.keyword,
       totalScopeCount: totalScopeCount
     };
     return { notes: notes, listCtx: listCtx };

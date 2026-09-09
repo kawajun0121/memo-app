@@ -14,15 +14,17 @@
 
   var MAX_CHIPS = 3;
 
-  /** @returns {string} 一覧カード用のタイトルHTML（空なら「無題」を薄字で表示） */
-  function formatTitleHtml(title) {
-    return title ? c.escapeHtml(title) : '<span class="note-title-empty">無題</span>';
+  /** @returns {string} 一覧カード用のタイトルHTML（空なら「無題」を薄字で表示）。
+   *  検索中はヒット箇所をハイライトする。 */
+  function formatTitleHtml(title, keyword) {
+    return title ? c.highlightHtml(title, keyword) : '<span class="note-title-empty">無題</span>';
   }
 
   /** @returns {string} 一覧カード用の本文プレビューHTML。元の改行を保ったまま複数行ぶん返し、
-   *  実際の表示行数はCSS（.note-snippet の --note-snippet-lines）で制限する。 */
-  function formatSnippetHtml(content) {
-    return c.escapeHtml(c.snippetLines(content, 300));
+   *  実際の表示行数はCSS（.note-snippet の --note-snippet-lines）で制限する。
+   *  検索中は一致した行から表示を始め、一致部分をハイライトする。 */
+  function formatSnippetHtml(content, keyword) {
+    return c.highlightHtml(c.snippetLines(content, 300, keyword), keyword);
   }
 
   /** @param {Note} note @returns {string} プレビュー・検索に使う生テキスト。新形式(json)はcontent自体が
@@ -34,11 +36,11 @@
 
   /**
    * @param {Note} note
-   * @param {{categoryNameById: Object, typeNameById: Object, isSelected: boolean, multiSelectMode: boolean, isChecked: boolean, isDeleteRevealed: boolean}} ctx
+   * @param {{categoryNameById: Object, typeNameById: Object, isSelected: boolean, multiSelectMode: boolean, isChecked: boolean, isDeleteRevealed: boolean, keyword: string}} ctx
    */
   function render(note, ctx) {
-    var title = formatTitleHtml(note.title);
-    var snippetText = formatSnippetHtml(previewText(note));
+    var title = formatTitleHtml(note.title, ctx.keyword);
+    var snippetText = formatSnippetHtml(previewText(note), ctx.keyword);
     var chips = note.categoryIds.slice(0, MAX_CHIPS).map(function (id) {
       return c.categoryChip(ctx.categoryNameById[id] || '?');
     }).join('');
