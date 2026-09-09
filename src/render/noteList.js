@@ -71,7 +71,6 @@
       '  </div>' +
       '  <div class="note-list-controls">' +
       '    <input type="search" class="search-input" id="searchInput" placeholder="検索 (Ctrl+K)" value="' + c.escapeHtml(ui.filter.keyword) + '" data-role="search-input" />' +
-      '    <button type="button" class="btn-icon mobile-only" data-action="setMobileViewSearch" title="詳細な検索・絞り込み" aria-label="詳細な検索・絞り込み">' + c.icon('search', 16) + ' 絞り込み</button>' +
       '    <button type="button" class="btn-icon" data-action="toggleMultiSelect" title="複数選択" aria-label="複数選択">' + (ui.multiSelectMode ? '選択終了' : '複数選択') + '</button>' +
       (ui.multiSelectMode ? '<button type="button" class="btn-icon" data-action="selectAllVisible" title="表示中のメモをすべて選択">すべて選択</button>' : '') +
       '    <div class="note-list-detail-controls">' +

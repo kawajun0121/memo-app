@@ -22,12 +22,29 @@
       .replace(/'/g, '&#39;');
   }
 
-  /** @returns {string} 改行を除いた本文の先頭部分（一覧カード用） */
+  /** @returns {string} 改行を除いた本文の先頭部分（1行表示したい箇所用） */
   function snippet(text, maxLen) {
     if (!text) return '';
     var flat = text.replace(/\s+/g, ' ').trim();
     if (flat.length <= maxLen) return flat;
     return flat.slice(0, maxLen) + '…';
+  }
+
+  /** 一覧カードのプレビュー用。元の改行を保ったまま先頭の数行ぶんを返す（買い物リストのような
+   *  箇条書きが1行に潰れて読めなくならないようにするため）。空行は詰める。実際に何行表示するかは
+   *  CSS側（--note-snippet-lines）で制限するので、ここでは折り返しを考慮して少し多めに残す。
+   *  @param {string} text @param {number} maxLen @returns {string} */
+  function snippetLines(text, maxLen) {
+    if (!text) return '';
+    var lines = String(text).split('\n');
+    var kept = [];
+    for (var i = 0; i < lines.length && kept.length < 8; i++) {
+      var line = lines[i].replace(/[ \t　]+/g, ' ').trim();
+      if (line) kept.push(line);
+    }
+    var joined = kept.join('\n');
+    if (joined.length <= maxLen) return joined;
+    return joined.slice(0, maxLen) + '…';
   }
 
   function iconButton(action, id, icon, title, extraAttrs, activeClass) {
@@ -110,6 +127,7 @@
   App.Render.common = {
     escapeHtml: escapeHtml,
     snippet: snippet,
+    snippetLines: snippetLines,
     iconButton: iconButton,
     categoryChip: categoryChip,
     typeBadge: typeBadge,

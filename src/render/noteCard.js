@@ -19,9 +19,10 @@
     return title ? c.escapeHtml(title) : '<span class="note-title-empty">無題</span>';
   }
 
-  /** @returns {string} 一覧カード用の本文プレビューHTML（改行を除いた先頭部分） */
+  /** @returns {string} 一覧カード用の本文プレビューHTML。元の改行を保ったまま複数行ぶん返し、
+   *  実際の表示行数はCSS（.note-snippet の --note-snippet-lines）で制限する。 */
   function formatSnippetHtml(content) {
-    return c.escapeHtml(c.snippet(content, 88));
+    return c.escapeHtml(c.snippetLines(content, 300));
   }
 
   /** @param {Note} note @returns {string} プレビュー・検索に使う生テキスト。新形式(json)はcontent自体が

@@ -255,6 +255,9 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  /* カードは仮想スクロールの都合で高さ固定のため、本文が短くても下端まで伸ばし、
+     カテゴリ・お気に入り等の行（margin-top:autoで押し下げる）を常に同じ位置に揃える */
+  align-self: stretch;
 }
 
 .note-card-top {
@@ -289,12 +292,18 @@
   color: var(--color-text-faint);
 }
 
+/* 本文プレビュー。1行だけだと長文や箇条書きの中身が確認できないため、元の改行を保ったまま
+   --note-snippet-lines 行ぶん表示する（超過分は末尾に…が付いて省略される）。 */
 .note-snippet {
   font-size: 14.5px;
   color: var(--color-text-muted);
+  white-space: pre-wrap;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--note-snippet-lines);
+  line-clamp: var(--note-snippet-lines);
 }
 
 .note-card-bottom {
@@ -302,6 +311,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  margin-top: auto; /* 本文の長短にかかわらずカード下端に揃える */
 }
 
 .note-card-tags {
