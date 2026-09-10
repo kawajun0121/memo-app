@@ -879,6 +879,31 @@
   color: var(--color-accent);
 }
 
+/* 「その他の書式」シートで、文字ラベルの左に置く記号（H1・•・☑ など）。
+   記号だけでは意味が伝わらないため必ずラベルと併記し、記号自体はaria-hidden。 */
+.sheet-format-glyph {
+  flex: none;
+  width: 28px;
+  text-align: center;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.sheet-picker-item.is-selected .sheet-format-glyph {
+  color: var(--color-accent);
+}
+
+/* 入力エラー（リンクのURL不正など）。シートは閉じずにここへ理由を出す。 */
+.sheet-error {
+  margin: 8px 0 0;
+  color: var(--color-danger);
+  font-size: 13px;
+}
+
+.sheet-add-input.has-error {
+  border-color: var(--color-danger);
+}
+
 .sheet-add-row {
   display: flex;
   gap: 8px;

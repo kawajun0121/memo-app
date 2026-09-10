@@ -24,7 +24,8 @@
       categoryPickerOpen: false, typePickerOpen: false, editorMenuOpen: false,
       bulkCategoryAddOpen: false, bulkCategoryRemoveOpen: false, bulkTypeChangeOpen: false,
       linkPickerOpen: false, linkPickerText: '', linkPickerUrl: '', linkPickerHasExistingLink: false,
-      colorPickerOpen: false
+      linkPickerError: '',
+      colorPickerOpen: false, formatMenuOpen: false
     },
     includeArchivedInSearch: false,
     // スマホ幅（iPhone等）でのみ使う画面切り替え。下部ナビゲーションの4タブに対応する。

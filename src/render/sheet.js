@@ -130,23 +130,59 @@
     return wrap('その他メニュー', body, 'closeEditorMenu');
   }
 
-  /** リンクの表示文字・URL設定（項目5）。現在の選択/カーソル位置の状態はuiStore.panelsのextraに
-   *  main.js側（openLinkPicker）が積んで渡す（既存リンクの編集時はURL/表示文字を事前入力する）。 */
+  /** リンクの表示文字・URL設定。現在の選択/カーソル位置の状態はuiStore.panelsのextraに
+   *  main.js側（openLinkPicker）が積んで渡す（既存リンクの編集時はURL/表示文字を事前入力する）。
+   *  URLが不正な場合はシートを閉じずにlinkPickerErrorを表示する。 */
   function renderLinkPicker(ui) {
     if (!ui.panels.linkPickerOpen) return '';
     var p = ui.panels;
+    var hasError = !!p.linkPickerError;
     var body = '' +
-      '<label class="settings-label">表示文字</label>' +
+      '<label class="settings-label" for="linkPickerTextInput">表示文字</label>' +
       '<input type="text" id="linkPickerTextInput" class="sheet-add-input enter-submits" value="' + c.escapeHtml(p.linkPickerText || '') + '" placeholder="表示する文字" />' +
-      '<label class="settings-label" style="margin-top:12px;display:block">URL</label>' +
-      '<input type="text" id="linkPickerUrlInput" class="sheet-add-input enter-submits" value="' + c.escapeHtml(p.linkPickerUrl || '') + '" placeholder="https://..." inputmode="url" autocapitalize="off" autocorrect="off" />' +
-      '<p class="settings-note">http(s)・mailto・telのリンクのみ設定できます。</p>' +
+      '<label class="settings-label" for="linkPickerUrlInput" style="margin-top:12px;display:block">URL</label>' +
+      '<input type="text" id="linkPickerUrlInput" class="sheet-add-input enter-submits' + (hasError ? ' has-error' : '') + '" value="' + c.escapeHtml(p.linkPickerUrl || '') + '" placeholder="https://..." inputmode="url" autocapitalize="off" autocorrect="off"' +
+      (hasError ? ' aria-invalid="true" aria-describedby="linkPickerError"' : '') + ' />' +
+      (hasError
+        ? '<p class="sheet-error" id="linkPickerError" role="alert">' + c.escapeHtml(p.linkPickerError) + '</p>'
+        : '<p class="settings-note">http(s)・mailto・telのリンクのみ設定できます。「example.com」のようにスキームを省略した場合はhttps://を補います。</p>') +
       '<div class="modal-actions">' +
       '  <button type="button" class="btn-text btn-primary" data-action="saveLinkPicker">保存</button>' +
       (p.linkPickerHasExistingLink ? '  <button type="button" class="btn-text btn-danger" data-action="removeLinkPicker">リンク解除</button>' : '') +
       '  <button type="button" class="btn-text" data-action="closeLinkPicker">キャンセル</button>' +
       '</div>';
     return wrap('リンクを設定', body, 'closeLinkPicker');
+  }
+
+  /** 「その他の書式」（項目4）。iPhoneのツールバーは太字・文字色・リンクだけを常設し、
+   *  残りの書式はここへ集約する。記号だけでは意味が分からないため文字ラベルを併記し、
+   *  今かかっている書式はaria-pressedとチェック表示の両方で分かるようにする。 */
+  var FORMAT_MENU_ITEMS = [
+    { action: 'richToggleHeading1', label: '見出し', glyph: 'H1', activeKey: 'heading1' },
+    { action: 'richToggleHeading2', label: '小見出し', glyph: 'H2', activeKey: 'heading2' },
+    { action: 'richToggleBulletList', label: '箇条書き', glyph: '•', activeKey: 'bulletList' },
+    { action: 'richToggleOrderedList', label: '番号付きリスト', glyph: '1.', activeKey: 'orderedList' },
+    { action: 'richToggleTaskList', label: 'チェックリスト', glyph: '☑', activeKey: 'taskList' },
+    { action: 'richClearFormat', label: '書式解除', glyph: '⌫', activeKey: null },
+    { action: 'richUndo', label: '元に戻す', glyph: '↶', activeKey: null },
+    { action: 'richRedo', label: 'やり直す', glyph: '↷', activeKey: null }
+  ];
+
+  function renderFormatMenu(ui) {
+    if (!ui.panels.formatMenuOpen) return '';
+    var editor = App.Render.noteEditor.getCurrentEditor();
+    var active = App.Render.noteEditor.computeActiveFormats(editor);
+    var body = '<div class="sheet-picker-list">' + FORMAT_MENU_ITEMS.map(function (item) {
+      var isOn = !!(item.activeKey && active[item.activeKey]);
+      return '<button type="button" class="sheet-picker-item' + (isOn ? ' is-selected' : '') + '" data-action="' + item.action + '"' +
+        (item.activeKey ? ' aria-pressed="' + (isOn ? 'true' : 'false') + '"' : '') + '>' +
+        '<span class="sheet-picker-check" aria-hidden="true">' + (isOn ? '✓' : '') + '</span>' +
+        '<span class="sheet-format-glyph" aria-hidden="true">' + item.glyph + '</span>' +
+        '<span class="sheet-picker-label">' + item.label + '</span>' +
+        '</button>';
+    }).join('') + '</div>';
+    return wrap('その他の書式', body, 'closeFormatMenu',
+      '選択した文字（選択していない場合はカーソルのある行）に適用します。');
   }
 
   var COLOR_OPTIONS = [
@@ -158,11 +194,17 @@
     { key: 'gray', label: 'グレー（補足）' }
   ];
 
-  /** 文字色（限定6色。項目2）。 */
+  /** 文字色（限定6色）。今かかっている色にチェックを付けて分かるようにする。
+   *  「標準」はtextColorマークを外すだけで、太字・リンク等の他の書式は残す。 */
   function renderColorPicker(ui) {
     if (!ui.panels.colorPickerOpen) return '';
+    var editor = App.Render.noteEditor.getCurrentEditor();
+    var currentColor = '';
+    if (editor && !editor.isDestroyed) currentColor = (editor.getAttributes('textColor') || {}).color || '';
     var body = '<div class="sheet-picker-list">' + COLOR_OPTIONS.map(function (opt) {
-      return '<button type="button" class="sheet-picker-item" data-action="applyTextColor" data-id="' + opt.key + '">' +
+      var isOn = opt.key === currentColor;
+      return '<button type="button" class="sheet-picker-item' + (isOn ? ' is-selected' : '') + '" data-action="applyTextColor" data-id="' + opt.key + '" aria-pressed="' + (isOn ? 'true' : 'false') + '">' +
+        '<span class="sheet-picker-check" aria-hidden="true">' + (isOn ? '✓' : '') + '</span>' +
         '<span class="color-swatch" data-color="' + opt.key + '" aria-hidden="true"></span>' +
         '<span class="sheet-picker-label">' + opt.label + '</span>' +
         '</button>';
@@ -173,7 +215,7 @@
   function renderAll(ui, note) {
     return renderCategoryPicker(ui) + renderTypePicker(ui) + renderEditorMenu(ui, note) +
       renderBulkCategoryAdd(ui) + renderBulkCategoryRemove(ui) + renderBulkTypeChange(ui) +
-      renderLinkPicker(ui) + renderColorPicker(ui);
+      renderLinkPicker(ui) + renderColorPicker(ui) + renderFormatMenu(ui);
   }
 
   App.Render.sheet = {

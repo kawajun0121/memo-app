@@ -15,12 +15,33 @@
  変換して表示するが、実際に編集・保存されるまで元のcontent/contentFormatは書き換えない
  （既存データへの後方互換・安全な移行）。
 
- 【IME変換中の保存】ProseMirrorの`editor.view.composing`で変換中かどうかを判定し、変換確定前は
- 自動保存を待つ。入力欄が再描画で壊れないようにする対策自体はrender/appShell.js側
- （フォーカス中は再描画を保留する仕組み。contenteditableのため`.note-content-editor`クラスで判定）で行う。
+ ============================================================================
+ 【責務の分離】以下の4つを明確に分けて扱う。混ざると「リンク・文字色が反映されない」
+ 「書式ボタンが1回目に反応しない」という不具合になる（実際になっていた）。
 
- 【一覧の即時反映】自動保存成功時・下書き昇格時にappShell.jsのsyncListLive()を呼び、
- 一覧・サイドバーの件数/プレビューをその場で即時反映する（優先度1）。
+ (1) エディタの生存期間 …… Tiptapインスタンスは「開いているメモ」に紐づく。#appMainの
+     再描画には紐づかない。以前はrenderMainRegion()がinnerHTMLを差し替えるたびに
+     mount()がdestroy＋再生成しており、シートを開いた拍子の再描画だけでエディタが
+     作り直され、退避しておいた選択範囲も編集履歴も失われていた。現在はTiptapがマウント
+     されているDOM要素（editorHostEl）自体をモジュール変数で保持し、再描画のたびに
+     新しいDOMツリーの所定の位置へ差し込み直す。同じメモを開いている限り作り直さない。
+
+ (2) 選択範囲の退避 …… リンク/文字色/その他書式のシートを開くとフォーカスがエディタから
+     外れる。適用時に使う座標は「シートを開く直前」に退避したものを使い、適用直前に
+     setTextSelection()で復元する。退避データは対象メモIDを持ち、別メモへ移ったら使わない。
+     (1)によりエディタ自体が生き残るため、退避データも再描画では消えない。
+
+ (3) 再描画のタイミング …… 本文欄にフォーカスがある間の#appMain再描画はappShell.js側で
+     保留される（IME保護）。保留解除（flushDeferredRender）は本文欄からフォーカスが
+     外れた時に行うが、フォーカスの移り先がツールバーやシートの場合は保留したままにする。
+     ここで再描画してしまうと、今まさに押されているボタンのDOMが差し替わり、
+     続いて発火するclickが委譲リスナーのroot.contains()判定で捨てられてしまうため
+     （＝「1回目のタップが効かない」不具合の正体）。
+
+ (4) 自動保存 …… Tiptapのon-updateを唯一の起点にし、500msデバウンス。IME変換中
+     （editor.view.composing）は保存を待つ。書式コマンドも文書変更なのでonUpdateが走り、
+     同じ経路で保存される（書式ごとの個別保存処理は持たない）。
+ ============================================================================
 */
 (function (App) {
   'use strict';
@@ -31,13 +52,19 @@
 
   /** @type {{noteId: string, getPatch: Function, isComposing: Function, flush: Function, cancel: Function, trigger: Function}|null} */
   var pending = null;
+
+  // ---------- (1) エディタの生存期間 ----------
+
   var currentEditor = null;
   var currentEditorNoteId = null;
+  /** Tiptapがマウントされている実DOM。#appMainのinnerHTML差し替えで一旦DOMツリーから外れるが、
+   *  この参照が生きているため要素自体は破棄されず、mount()で新しいツリーへ差し戻せる。 */
+  var editorHostEl = null;
 
-  /** リンク・文字色シートを開いた時点の選択範囲を一時的に覚えておく（不具合修正）。
-   *  シートを開く操作そのものでフォーカスが動いても、保存/適用時にはここへ退避した
-   *  座標を使うため、選択範囲が失われない。
-   *  @type {{kind:'link'|'color', noteId:string, from:number, to:number, selectedText:string, existingHref:string, isEmpty:boolean}|null} */
+  // ---------- (2) 選択範囲の退避 ----------
+
+  /** シート（リンク・文字色・その他の書式）を開いた時点の選択範囲。
+   *  @type {{kind:string, noteId:string, from:number, to:number, selectedText:string, existingHref:string, isEmpty:boolean}|null} */
   var savedSelection = null;
 
   function flushPending() {
@@ -52,7 +79,7 @@
     return currentEditorNoteId;
   }
 
-  /** @param {'link'|'color'} kind @returns {Object|null} 現在の選択範囲を退避して返す */
+  /** @param {string} kind @returns {Object|null} 現在の選択範囲を退避して返す */
   function captureSelection(kind) {
     if (!currentEditor || !currentEditorNoteId) return null;
     var sel = currentEditor.state.selection;
@@ -71,7 +98,7 @@
   }
 
   /** リンク用の退避。カーソルが既存リンクの内側にある場合は、リンク全体を選択範囲として
-   *  扱う（extendMarkRange）。これによりURL/表示文字の編集対象がリンク全体になる。 */
+   *  扱う（extendMarkRange）。これによりURL/表示文字の編集・解除の対象がリンク全体になる。 */
   function captureSelectionForLink() {
     if (!currentEditor) return null;
     if (currentEditor.state.selection.empty && currentEditor.isActive('link')) {
@@ -88,9 +115,9 @@
     savedSelection = null;
   }
 
-  /** 退避した座標を、現在の文書サイズの範囲内へ安全に補正する（不具合修正:項目7）。
+  /** 退避した座標を、現在の文書サイズの範囲内へ安全に補正する。
    *  対象メモが変わっていた場合や、エディタが存在しない場合はnullを返す。
-   *  @param {'link'|'color'} kind @returns {{from:number, to:number}|null} */
+   *  @param {string} kind @returns {{from:number, to:number}|null} */
   function resolveSavedRange(kind) {
     if (!currentEditor || !savedSelection || savedSelection.kind !== kind) return null;
     if (savedSelection.noteId !== currentEditorNoteId) return null; // 別のメモへ移動していた
@@ -99,6 +126,24 @@
     var to = Math.max(from, Math.min(savedSelection.to, maxPos));
     return { from: from, to: to };
   }
+
+  /** 退避した選択範囲を復元したうえで書式コマンドを実行する共通経路
+   *  （リンク・文字色・その他の書式シートから使う）。
+   *  @param {string} kind @param {(chain:Object, range:Object|null) => Object|null} build
+   *  @returns {boolean} 実行できたか */
+  function runWithSavedSelection(kind, build) {
+    var editor = currentEditor;
+    if (!editor || editor.isDestroyed) return false;
+    var range = resolveSavedRange(kind);
+    var chain = editor.chain().focus();
+    if (range) chain = chain.setTextSelection(range);
+    var built = build(chain, range);
+    if (!built) return false;
+    built.run();
+    return true;
+  }
+
+  // ---------- (4) 自動保存 ----------
 
   function statusSyncSuffix() {
     if (!App.Store.syncStatusStore) return '';
@@ -123,12 +168,9 @@
    * @param {() => Partial<Note>} getPatch
    * @param {() => boolean} isComposing 日本語入力などのIME変換中かどうか
    *
-   * 【重要】同じメモを編集し続けている間に別の理由で編集画面が再描画されると、エディタと
-   * getPatch/isComposingのクロージャはすべて新しく作り直される。もし保留中のデバウンス（pending）が
-   * 「作成した時点」のgetPatchを握ったままだと、それは作り直される前の（=既に破棄された）エディタを
-   * 読み続けてしまい、再描画後にユーザーが入力した内容が保存されずに消える不具合になる。これを防ぐため、
-   * pending.getPatch/isComposingは毎回のscheduleSave呼び出しで必ず最新のものに更新し、
-   * 実際に保存を実行する関数もpending.getPatch()のように間接的に参照する。
+   * 【重要】保留中のデバウンス（pending）が「作成した時点」のgetPatchを握ったままだと、
+   * 作り直される前の（＝既に破棄された）エディタを読み続けてしまう。これを防ぐため、
+   * pending.getPatch/isComposingは毎回のscheduleSave呼び出しで必ず最新のものに更新する。
    */
   function scheduleSave(noteId, getPatch, isComposing) {
     if (pending && pending.noteId !== noteId) {
@@ -141,8 +183,8 @@
         var savingNoteId = pending.noteId;
         App.Store.notesStore.update(savingNoteId, pending.getPatch()).then(function () {
           setStatus('保存済み' + statusSyncSuffix(), false);
-          // 編集中は#app全体の再描画をappShell.js側で遅延させているため（IME対策）、
-          // 一覧・サイドバーの件数/プレビューだけはここで即時同期する（優先度1）。
+          // 編集中は#appMain全体の再描画をappShell.js側で遅延させているため（IME対策）、
+          // 一覧・サイドバーの件数/プレビューだけはここで即時同期する。
           App.Render.appShell.syncListLive();
         }).catch(function () {
           setStatus('保存できませんでした（再試行します）', false);
@@ -169,48 +211,113 @@
     return '<button type="button" class="flag-btn' + (isActive ? ' is-active' : '') + '" data-action="' + action + '" data-id="' + id + '" aria-pressed="' + (isActive ? 'true' : 'false') + '">' + icon + ' ' + label + '</button>';
   }
 
-  // ---------- リッチテキストツールバー ----------
+  // ---------- リッチテキストツールバー（項目4） ----------
 
+  /* iPhoneで横スクロールしないと「リンク」「文字色」へ届かない問題への対処として、
+     よく使う「太字・文字色・リンク」だけを常時表示し、残り（見出し・小見出し・箇条書き・
+     番号付きリスト・チェックリスト・書式解除・元に戻す・やり直す）は「その他の書式」シートへ
+     まとめる。シート側は文字ラベル付きなので、記号だけでは意味が分からない操作も読める。 */
+
+  /** @param {string} action @param {string} label 読み上げ・ツールチップ用の説明
+   *  @param {string} glyph 表示する記号 @param {string|null} richActiveKey 有効状態の判定キー */
   function toolbarButton(action, label, glyph, richActiveKey) {
-    return '<button type="button" class="rich-toolbar-btn" data-action="' + action + '" title="' + label + '" aria-label="' + label + '"' +
-      (richActiveKey ? ' data-rich-active="' + richActiveKey + '" aria-pressed="false"' : '') + '>' + glyph + '</button>';
+    return '<button type="button" class="rich-toolbar-btn" data-action="' + action + '" title="' + c.escapeHtml(label) + '" aria-label="' + c.escapeHtml(label) + '"' +
+      (richActiveKey ? ' data-rich-active="' + richActiveKey + '" aria-pressed="false"' : '') + '>' +
+      '<span aria-hidden="true">' + glyph + '</span></button>';
   }
 
   function renderRichToolbar() {
     return '' +
-      '<div class="rich-toolbar" id="richToolbar">' +
-      toolbarButton('richToggleHeading1', '見出し1', 'H1', 'heading1') +
-      toolbarButton('richToggleHeading2', '見出し2', 'H2', 'heading2') +
+      '<div class="rich-toolbar" id="richToolbar" role="toolbar" aria-label="書式">' +
       toolbarButton('richToggleBold', '太字', 'B', 'bold') +
-      toolbarButton('richToggleBulletList', '箇条書き', '•', 'bulletList') +
-      toolbarButton('richToggleOrderedList', '番号付きリスト', '1.', 'orderedList') +
-      toolbarButton('richToggleTaskList', 'チェックリスト', '☑', 'taskList') +
+      toolbarButton('openColorPicker', '文字色', 'A', 'textColor') +
       toolbarButton('openLinkPicker', 'リンク', '🔗', 'link') +
-      toolbarButton('openColorPicker', '文字色', 'A', null) +
-      toolbarButton('richClearFormat', '書式解除', '⌫', null) +
-      toolbarButton('richUndo', '元に戻す', '↶', null) +
-      toolbarButton('richRedo', 'やり直す', '↷', null) +
+      toolbarButton('openFormatMenu', 'その他の書式', '⋯', 'otherFormat') +
       '</div>';
+  }
+
+  /** 各書式が今の選択範囲で有効かどうか。ツールバーと「その他の書式」シートの両方で同じ判定を使う。 */
+  function computeActiveFormats(editor) {
+    if (!editor || editor.isDestroyed) return {};
+    return {
+      bold: editor.isActive('bold'),
+      textColor: editor.isActive('textColor'),
+      link: editor.isActive('link'),
+      heading1: editor.isActive('heading', { level: 1 }),
+      heading2: editor.isActive('heading', { level: 2 }),
+      bulletList: editor.isActive('bulletList'),
+      orderedList: editor.isActive('orderedList'),
+      taskList: editor.isActive('taskList')
+    };
+  }
+
+  /** 「その他の書式」に入っているどれかが有効なら、まとめボタン自体も有効表示にする
+   *  （隠れている書式が今かかっていることを、シートを開かなくても分かるようにするため）。 */
+  function isAnyGroupedFormatActive(map) {
+    return !!(map.heading1 || map.heading2 || map.bulletList || map.orderedList || map.taskList);
   }
 
   function refreshToolbarActiveStates(editor) {
     var toolbar = document.getElementById('richToolbar');
-    if (!toolbar || !editor) return;
-    var map = {
-      heading1: editor.isActive('heading', { level: 1 }),
-      heading2: editor.isActive('heading', { level: 2 }),
-      bold: editor.isActive('bold'),
-      bulletList: editor.isActive('bulletList'),
-      orderedList: editor.isActive('orderedList'),
-      taskList: editor.isActive('taskList'),
-      link: editor.isActive('link')
-    };
+    if (!toolbar || !editor || editor.isDestroyed) return;
+    var map = computeActiveFormats(editor);
+    map.otherFormat = isAnyGroupedFormatActive(map);
     Object.keys(map).forEach(function (key) {
       var btn = toolbar.querySelector('[data-rich-active="' + key + '"]');
       if (!btn) return;
-      btn.classList.toggle('is-active', map[key]);
+      btn.classList.toggle('is-active', !!map[key]);
       btn.setAttribute('aria-pressed', map[key] ? 'true' : 'false');
     });
+  }
+
+  // ---------- (項目5) ソフトウェアキーボードへの追従 ----------
+
+  /* position:sticky;top:0 だけでは「編集画面の上端」に留まるだけで、キーボードの直上に来る保証がない。
+     visualViewport APIで「レイアウトビューポートのうち実際には見えていない下端の高さ」を求め、
+     その分だけ持ち上げた位置にツールバーを固定する。非対応環境では何もしない＝従来のstickyのまま。 */
+
+  var KEYBOARD_OPEN_THRESHOLD_PX = 120; // これ未満の差はアドレスバーの伸縮とみなしキーボード扱いしない
+  var viewportListenersBound = false;
+
+  function updateKeyboardInset() {
+    var vv = window.visualViewport;
+    if (!vv) return;
+    var hiddenBottom = Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
+    var root = document.documentElement;
+    root.style.setProperty('--keyboard-inset-bottom', Math.round(hiddenBottom) + 'px');
+    root.classList.toggle('is-keyboard-open', hiddenBottom > KEYBOARD_OPEN_THRESHOLD_PX);
+  }
+
+  function bindViewportListeners() {
+    if (viewportListenersBound) return;
+    viewportListenersBound = true;
+    var vv = window.visualViewport;
+    if (!vv) return; // 非対応環境はstickyのまま（フォールバック）
+    // キーボードの開閉・Safariのアドレスバー伸縮・ページ内スクロールのいずれでも発火する
+    vv.addEventListener('resize', updateKeyboardInset);
+    vv.addEventListener('scroll', updateKeyboardInset);
+    window.addEventListener('orientationchange', function () {
+      // 回転直後はまだ新しい寸法が確定していないことがあるため、少し後にも測り直す
+      updateKeyboardInset();
+      window.setTimeout(updateKeyboardInset, 300);
+    });
+    updateKeyboardInset();
+  }
+
+  /** 編集中のカーソルが、下部に固定されたツールバーの裏に隠れないようスクロールを補正する。 */
+  function keepCursorVisible(editor) {
+    if (!editor || editor.isDestroyed || !editor.view) return;
+    if (!document.documentElement.classList.contains('is-keyboard-open')) return;
+    try {
+      var coords = editor.view.coordsAtPos(editor.state.selection.head);
+      var toolbar = document.getElementById('richToolbar');
+      if (!toolbar) return;
+      var bar = toolbar.getBoundingClientRect();
+      if (coords.bottom > bar.top - 8) {
+        var scroller = document.querySelector('.note-editor');
+        if (scroller) scroller.scrollTop += (coords.bottom - bar.top) + 24;
+      }
+    } catch (e) { /* 座標が取れない場合は何もしない */ }
   }
 
   // ---------- 描画 ----------
@@ -227,18 +334,20 @@
       return '' +
         '<div class="note-editor" data-note-id="' + note.id + '">' +
         renderTopToolbar(note) +
-        '  <div id="richEditorRoot" class="note-content-editor note-content-editor--readonly"></div>' +
+        '  <div class="note-content-editor note-content-editor--readonly" id="richEditorReadonly"></div>' +
         renderTrashedActions(note) +
         '</div>';
     }
 
     var typeName = note.typeId ? (App.Store.typesStore.getById(note.typeId) || {}).name : null;
 
+    // richEditorSlotは「ここにエディタを差し込む」という目印だけの空要素。mount()が、
+    // 使い回しているエディタ本体（editorHostEl）でこの要素を置き換える。
     return '' +
       '<div class="note-editor" data-note-id="' + note.id + '">' +
       renderTopToolbar(note) +
       renderRichToolbar() +
-      '  <div id="richEditorRoot" class="note-content-editor"></div>' +
+      '  <div id="richEditorSlot"></div>' +
       '  <div class="note-editor-categories">' +
       '    <div class="chip-row">' + categoryChipsHtml(note) +
       '      <button type="button" class="chip chip-add" data-action="openCategoryPicker" aria-label="カテゴリを追加">+ カテゴリ</button>' +
@@ -276,9 +385,6 @@
     return !!(draft && draft.id === id);
   }
 
-  /** @param {Note} note @returns {Object} Tiptapへ渡す初期JSON文書。新形式(json)はそのまま、
-   *  旧プレーン形式（contentFormat未設定）は1行1段落へ変換して「表示だけ」する
-   *  （実際に保存されるまでnote.content/contentFormat自体は書き換えない）。 */
   /** @param {string} title @param {string} content 旧プレーン形式（リッチテキスト移行前）は
    *  title＝1行目、content＝2行目以降というように別フィールドで保持しており、
    *  contentだけにはタイトルの文字列が含まれていない。1つのテキストへ結合してから
@@ -304,9 +410,7 @@
   }
 
   /** 下書きへの最初の入力（本文が空でなくなった瞬間）で、正式なメモとしてnotesStoreへ昇格させる。
-   *  空のまま一覧等へ戻った場合は何もしない（＝IndexedDBには一切書き込まれず、優先度4の要件を満たす）。
-   *  昇格後もメモidは下書き時点と同じものを使い続けるため、appShell.js側の「編集中は同じメモとみなし
-   *  再描画を保留する」判定が下書き→保存後の間で途切れず、入力中にエディタが作り直されない。 */
+   *  空のまま一覧等へ戻った場合は何もしない（＝IndexedDBには一切書き込まれない）。 */
   function promoteDraftIfNeeded(noteId, patch) {
     if (!isDraftId(noteId)) return;
     if (!patch.title && !patch.plainText) return; // まだ何も入力されていない
@@ -331,16 +435,33 @@
     }
     currentEditor = null;
     currentEditorNoteId = null;
-    savedSelection = null; // 別メモへの切り替え等でエディタが破棄されたら、古い選択範囲は使わせない
+    editorHostEl = null;
+    savedSelection = null; // 別メモへ切り替えたら、古い選択範囲は使わせない
   }
 
+  /**
+   * 現在の#appMainのDOMへ、使い回しているエディタ本体を差し込む。
+   * @returns {boolean} 差し込めたか（目印が無い＝エディタを表示しない画面ならfalse）
+   */
+  function attachEditorHost() {
+    var slot = document.getElementById('richEditorSlot');
+    if (!slot || !editorHostEl) return false;
+    slot.replaceWith(editorHostEl);
+    return true;
+  }
+
+  /**
+   * 【責務(1)】同じメモを開き続けている限り、Tiptapインスタンスは作り直さない。
+   * #appMainの再描画で一旦DOMツリーから外れた本体を、新しいツリーへ差し戻すだけにする。
+   * これにより、シートを開いた拍子の再描画で選択範囲・編集履歴・入力中の状態が失われない。
+   */
   function mount(note) {
     if (!note) { destroyCurrentEditor(); return; }
 
     if (!window.MemoApp.RichEditor) {
       // 通常はtype="module"の読み込みがDOMContentLoadedを待つため起こらないが、万一に備える。
-      var root0 = document.getElementById('richEditorRoot');
-      if (root0) root0.textContent = 'エディタを読み込み中…';
+      var slot0 = document.getElementById('richEditorSlot');
+      if (slot0) slot0.textContent = 'エディタを読み込み中…';
       window.addEventListener('richeditor:ready', function retryMount() {
         window.removeEventListener('richeditor:ready', retryMount);
         mount(note);
@@ -350,29 +471,33 @@
 
     if (note.deletedAt) {
       destroyCurrentEditor();
-      var readonlyRoot = document.getElementById('richEditorRoot');
+      var readonlyRoot = document.getElementById('richEditorReadonly');
       if (readonlyRoot) readonlyRoot.innerHTML = window.MemoApp.RichEditor.htmlFromJSON(contentJSONForNote(note));
       return;
     }
 
-    var root = document.getElementById('richEditorRoot');
-    if (!root) return;
+    // 同じメモを開いたままの再描画: 既存インスタンスをそのまま新しいDOMへ差し戻す
+    if (currentEditor && !currentEditor.isDestroyed && currentEditorNoteId === note.id) {
+      if (attachEditorHost()) {
+        bindToolbarFocusGuard();
+        refreshToolbarActiveStates(currentEditor);
+      }
+      // 目印が無い場合＝このメモの編集画面が今は描画されていない（別画面）。
+      // インスタンスは保持したままにして、戻ってきた時にそのまま差し戻す。
+      return;
+    }
+
+    // ここから先は「別のメモを開いた」または「初回」のときだけ通る
     destroyCurrentEditor();
 
-    /** 【重要・不具合修正】このmount()呼び出し1回ぶんに閉じたローカル変数。以前はcurrentPatch/
-     *  isComposingがモジュール変数currentEditorを直接参照していたため、このメモの自動保存の
-     *  デバウンス（500ms）が発火する前に別のメモへ切り替えると、currentEditorはその新しい
-     *  メモのエディタに差し替わってしまい、発火時に「新しいメモの内容」を「このメモのid」で
-     *  保存してしまいタイトル・本文が失われる不具合があった。mount()ごとに閉じたローカル参照
-     *  （editorForThisMount）を使うことで、後から別のメモが開かれてモジュール変数
-     *  currentEditorが差し替わっても、このメモ専用のcurrentPatch/isComposingは常にこの
-     *  メモ自身のエディタインスタンスだけを参照し続ける（textareaの頃のcontentInputクロージャと
-     *  同じ考え方）。 */
-    var editorForThisMount = null;
+    editorHostEl = document.createElement('div');
+    editorHostEl.className = 'note-content-editor';
+    if (!attachEditorHost()) { editorHostEl = null; return; }
 
-    function flushDeferredRenderIfAny() {
-      App.Render.appShell.flushDeferredRender();
-    }
+    /** このmount()呼び出し1回ぶんに閉じたローカル変数。後から別のメモが開かれて
+     *  モジュール変数currentEditorが差し替わっても、このメモ専用のcurrentPatch/isComposingは
+     *  常にこのメモ自身のエディタインスタンスだけを参照し続ける。 */
+    var editorForThisMount = null;
 
     function currentPatch() {
       return editorForThisMount ? buildPatchFromEditor(editorForThisMount) : { title: note.title, plainText: note.plainText };
@@ -386,32 +511,56 @@
       promoteDraftIfNeeded(note.id, patch);
       scheduleSave(note.id, currentPatch, isComposing);
       refreshToolbarActiveStates(editorForThisMount);
+      keepCursorVisible(editorForThisMount);
     }
 
-    var editor = window.MemoApp.RichEditor.mount(root, {
+    var editor = window.MemoApp.RichEditor.mount(editorHostEl, {
       content: contentJSONForNote(note),
       autofocus: isDraftId(note.id),
       onUpdate: handleUpdate,
       onSelectionUpdate: function () { refreshToolbarActiveStates(editorForThisMount); }
     });
     editorForThisMount = editor;
-    currentEditor = editor; // ツールバー操作等、常に「今表示中」のエディタを指すためのモジュール変数（こちらは差し替わって正しい）
+    currentEditor = editor;
     currentEditorNoteId = note.id;
-    editor.on('blur', flushDeferredRenderIfAny);
-    refreshToolbarActiveStates(editor);
 
-    // ツールバーのボタンを押した際、contenteditableからフォーカスが移って選択範囲が
-    // 失われることがないよう、既定のフォーカス移動そのものを止める（clickイベント自体は
-    // 止めないため、render/common.jsのdata-action委譲は通常どおり動く）。
-    // iPhone Safariでのタップも正しく扱うため、対応していればPointer Eventsを使う
-    // （mousedownとの重複登録はしない＝1回のタップで二重発火しない）。
+    /** 【責務(3)】保留していた再描画をここで解除する。ただしフォーカスの移り先が
+     *  ツールバー/オーバーレイの場合は保留したままにする。今まさに押されているボタンの
+     *  DOMを差し替えてしまうと、続いて発火するclickが委譲リスナーの
+     *  root.contains()判定で捨てられ、「1回目のタップが効かない」不具合になるため。
+     *  この場合の再描画は、シートを閉じた時などの次のrenderAll()で自然に行われる。 */
+    editor.on('blur', function () {
+      window.setTimeout(function () {
+        var active = document.activeElement;
+        if (active && active.closest && active.closest('#richToolbar, #appOverlay')) return;
+        App.Render.appShell.flushDeferredRender();
+      }, 0);
+    });
+
+    // チェックリストのチェック切り替えは「即時保存」する（デバウンスの500msを待たない）。
+    editorHostEl.addEventListener('change', function (evt) {
+      if (evt.target && evt.target.type === 'checkbox') flushPending();
+    });
+
+    bindViewportListeners();
+    bindToolbarFocusGuard();
+    refreshToolbarActiveStates(editor);
+  }
+
+  /** ツールバーのボタンを押した際、contenteditableからフォーカスが移って選択範囲が
+   *  失われることがないよう、既定のフォーカス移動そのものを止める（clickイベント自体は
+   *  止めないため、render/common.jsのdata-action委譲は通常どおり動き、シートも開く）。
+   *  ツールバーDOMは再描画で作り直されるため、再描画のたびに張り直す必要がある。
+   *  iPhone Safariでのタップも正しく扱うため、対応していればPointer Eventsを使う
+   *  （mousedownとの重複登録はしない＝1回のタップで二重発火しない）。 */
+  function bindToolbarFocusGuard() {
     var toolbar = document.getElementById('richToolbar');
-    if (toolbar) {
-      var pointerEventName = window.PointerEvent ? 'pointerdown' : 'mousedown';
-      toolbar.addEventListener(pointerEventName, function (evt) {
-        if (evt.target.closest('[data-action]')) evt.preventDefault();
-      });
-    }
+    if (!toolbar || toolbar.getAttribute('data-focus-guard') === 'bound') return;
+    toolbar.setAttribute('data-focus-guard', 'bound');
+    var pointerEventName = window.PointerEvent ? 'pointerdown' : 'mousedown';
+    toolbar.addEventListener(pointerEventName, function (evt) {
+      if (evt.target.closest('[data-action]')) evt.preventDefault();
+    });
   }
 
   App.Render.noteEditor = {
@@ -425,6 +574,9 @@
     getSavedSelection: getSavedSelection,
     clearSavedSelection: clearSavedSelection,
     resolveSavedRange: resolveSavedRange,
+    runWithSavedSelection: runWithSavedSelection,
+    computeActiveFormats: computeActiveFormats,
+    refreshToolbarActiveStates: refreshToolbarActiveStates,
     AUTOSAVE_DELAY_MS: AUTOSAVE_DELAY_MS
   };
 })(window.MemoApp = window.MemoApp || {});

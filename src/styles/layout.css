@@ -261,9 +261,14 @@
   margin-bottom: 8px;
 }
 
-/* ---------- リッチテキストツールバー（項目3: iPhoneでは横スクロール可能なバー） ----------
-   .note-editorのスクロール領域内でposition:stickyにし、ソフトウェアキーボードの直上に
-   常に見える位置へ留まるようにする（visualViewport APIに頼らない、シンプルで確実な方式）。 */
+/* ---------- リッチテキストツールバー（項目4・5） ----------
+   常設するのは「太字・文字色・リンク・その他の書式」の4つだけなので、iPhoneの最小幅(375px)でも
+   横スクロールなしで全部並ぶ（以前は11個あり、リンク・文字色へ横スクロールが必要だった）。
+   万一狭い環境でも押せなくならないよう、overflow-x:autoは保険として残す。
+
+   既定は従来どおりposition:sticky（visualViewport非対応環境へのフォールバック）。
+   キーボード表示中（noteEditor.jsがhtml要素へ.is-keyboard-openを付ける）は、
+   visualViewportで測った「見えていない下端の高さ」の直上へ固定し、キーボードに隠れないようにする。 */
 .rich-toolbar {
   flex: none;
   display: flex;
@@ -277,6 +282,29 @@
   top: 0;
   background: var(--color-bg);
   z-index: 5;
+}
+
+/* キーボード表示中は画面下部（キーボードの直上）へ移動する。
+   --keyboard-inset-bottom はnoteEditor.jsのupdateKeyboardInset()が実測して設定する。
+   ホームインジケーター分（safe-area）はキーボード非表示時のみ足す（キーボードが出ている間は
+   キーボード自身がその領域を覆うため、二重に空けると浮いて見えるため）。 */
+.is-keyboard-open .rich-toolbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: auto;
+  bottom: var(--keyboard-inset-bottom, 0px);
+  margin: 0;
+  padding: 6px max(8px, env(safe-area-inset-left)) 6px max(8px, env(safe-area-inset-right));
+  border-top: 1px solid var(--color-border);
+  border-bottom: none;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
+  z-index: 40;
+}
+
+/* 本文の末尾がツールバーの裏に隠れないよう、固定表示中はその高さぶん余白を足す */
+.is-keyboard-open .note-editor {
+  padding-bottom: calc(var(--keyboard-inset-bottom, 0px) + 64px);
 }
 
 .rich-toolbar-btn {
@@ -346,15 +374,26 @@
 .note-content-editor ul[data-type="taskList"] li {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 0;
 }
+/* 【項目6】チェックボックス自体は22pxのまま（大きくしすぎない）で、それを包むlabelを
+   44x44pxにしてタップ範囲だけを広げる。labelが包むのはチェックボックスだけなので、
+   本文をタップしても誤ってチェックが変わることはない。labelは独立した列を占めるため
+   本文と重ならない。 */
 .note-content-editor ul[data-type="taskList"] li > label {
   flex: none;
-  margin-top: 0.3em;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: -0.55em 0 0 -11px; /* 44pxの枠を広げても、見た目のチェック位置は従来どおりに保つ */
+  cursor: pointer;
 }
 .note-content-editor ul[data-type="taskList"] li > div {
   flex: 1;
   min-width: 0;
+  padding-top: 0.15em;
 }
 .note-content-editor ul[data-type="taskList"] li > div > p { margin: 0; }
 .note-content-editor ul[data-type="taskList"] li[data-checked="true"] > div {
@@ -362,8 +401,9 @@
   text-decoration: line-through;
 }
 .note-content-editor ul[data-type="taskList"] input[type="checkbox"] {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
+  margin: 0;
 }
 
 /* 文字色（限定6色。項目2）。色だけで意味を判断させないという方針のため、太字・見出し等との
