@@ -302,8 +302,11 @@
   z-index: 40;
 }
 
-/* 本文の末尾がツールバーの裏に隠れないよう、固定表示中はその高さぶん余白を足す */
-.is-keyboard-open .note-editor {
+/* 本文の末尾がツールバー・キーボードの裏に隠れないよう、固定表示中はその高さぶん余白を足す。
+   モバイルの `.app-body[data-mobile-view="editor"] .note-editor { padding-bottom: 0 }` を
+   確実に上書きする必要があるため、同じだけ詳細度を積んだセレクタで指定する。 */
+.is-keyboard-open .note-editor,
+.is-keyboard-open .app-body[data-mobile-view="editor"] .note-editor {
   padding-bottom: calc(var(--keyboard-inset-bottom, 0px) + 64px);
 }
 
